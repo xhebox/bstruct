@@ -147,6 +147,8 @@ Int16 []struct {
 }
 ```
 
+btw, stack and external variable map just have a size of 256. It's not to be modified by design.
+
 # slice
 
 in bstruct, special tags apply to slice.
