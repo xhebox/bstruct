@@ -152,6 +152,7 @@ func (t *Decoder) Decode(w *Type, data interface{}) error {
 func (t *Decoder) decode(w *Type, v reflect.Value) error {
 	switch w.kind {
 	case Invalid:
+	case String:
 	case Bool:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read bool")

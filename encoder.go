@@ -4,11 +4,16 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"unsafe"
 
 	"github.com/pkg/errors"
 	"github.com/xhebox/bstruct/byteorder"
 	vm "github.com/xhebox/bstruct/tinyvm"
 )
+
+func str_bytes(s string) []byte {
+	return *(*[]byte)(unsafe.Pointer(&s))
+}
 
 // Encoder has three exported field.
 //
@@ -114,6 +119,10 @@ func (t *Encoder) Encode(w *Type, data interface{}) error {
 func (t *Encoder) encode(w *Type, v reflect.Value) error {
 	switch w.kind {
 	case Invalid:
+	case String:
+		if _, e := t.Wt.Write(str_bytes(v.String())); e != nil {
+			return errors.Wrapf(e, "can not write string")
+		}
 	case Bool:
 		t.bool(v.Bool())
 

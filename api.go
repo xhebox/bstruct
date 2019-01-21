@@ -201,7 +201,7 @@ func genField(compiler *vm.Compiler, field reflect.StructField, prt reflect.Type
 		}
 
 		r = &Field{
-			rtype: &Type{kind: Interface},
+			rtype: &Type{kind: Invalid},
 			flag:  flag,
 			align: align,
 			tpm:   tpm,
@@ -212,7 +212,7 @@ func genField(compiler *vm.Compiler, field reflect.StructField, prt reflect.Type
 		}
 	case reflect.String:
 		r = &Field{
-			rtype: &Type{},
+			rtype: &Type{kind: String},
 			flag:  flag,
 			align: align,
 			tpm:   tpm,
