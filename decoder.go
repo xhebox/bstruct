@@ -97,50 +97,6 @@ func NewDecoder() *Decoder {
 	return dec
 }
 
-func (t *Decoder) bool() bool {
-	return t.Endian.Bool(t.buf)
-}
-
-func (t *Decoder) int8() int8 {
-	return t.Endian.Int8(t.buf)
-}
-
-func (t *Decoder) int16() int16 {
-	return t.Endian.Int16(t.buf)
-}
-
-func (t *Decoder) int32() int32 {
-	return t.Endian.Int32(t.buf)
-}
-
-func (t *Decoder) int64() int64 {
-	return t.Endian.Int64(t.buf)
-}
-
-func (t *Decoder) uint8() uint8 {
-	return t.Endian.Uint8(t.buf)
-}
-
-func (t *Decoder) uint16() uint16 {
-	return t.Endian.Uint16(t.buf)
-}
-
-func (t *Decoder) uint32() uint32 {
-	return t.Endian.Uint32(t.buf)
-}
-
-func (t *Decoder) uint64() uint64 {
-	return t.Endian.Uint64(t.buf)
-}
-
-func (t *Decoder) float32() float32 {
-	return t.Endian.Float32(t.buf)
-}
-
-func (t *Decoder) float64() float64 {
-	return t.Endian.Float64(t.buf)
-}
-
 // pass the generated *Type, and a pointer to data
 func (t *Decoder) Decode(w *Type, data interface{}) error {
 	v := reflect.Indirect(reflect.ValueOf(data))
@@ -153,79 +109,89 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 	switch w.kind {
 	case Invalid:
 	case String:
+	case UVarint:
+		n, e := t.Endian.UVarint(t.Rd)
+		if e != nil {
+			return errors.Wrapf(e, "can not read uvarint")
+		}
+
+		v.SetUint(n)
+	case Varint:
+		n, e := t.Endian.Varint(t.Rd)
+		if e != nil {
+			return errors.Wrapf(e, "can not read varint")
+		}
+
+		v.SetInt(n)
 	case Bool:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read bool")
 		}
 
-		v.SetBool(t.bool())
+		v.SetBool(t.Endian.Bool(t.buf))
 	case Int8:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read int8")
 		}
 
-		v.SetInt(int64(t.int8()))
+		v.SetInt(int64(t.Endian.Int8(t.buf)))
 	case Int16:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read int16")
 		}
 
-		v.SetInt(int64(t.int16()))
+		v.SetInt(int64(t.Endian.Int16(t.buf)))
 	case Int32:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read int32")
 		}
 
-		v.SetInt(int64(t.int32()))
+		v.SetInt(int64(t.Endian.Int32(t.buf)))
 	case Int64:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read int64")
 		}
 
-		v.SetInt(t.int64())
+		v.SetInt(t.Endian.Int64(t.buf))
 	case Uint8:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read uint8")
 		}
 
-		v.SetUint(uint64(t.uint8()))
+		v.SetUint(uint64(t.Endian.Uint8(t.buf)))
 	case Uint16:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read uint16")
 		}
 
-		v.SetUint(uint64(t.uint16()))
+		v.SetUint(uint64(t.Endian.Uint16(t.buf)))
 	case Uint32:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read uint32")
 		}
 
-		v.SetUint(uint64(t.uint32()))
+		v.SetUint(uint64(t.Endian.Uint32(t.buf)))
 	case Uint64:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read uint64")
 		}
 
-		v.SetUint(t.uint64())
+		v.SetUint(t.Endian.Uint64(t.buf))
 	case Float32:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read float32")
 		}
 
-		v.SetFloat(float64(t.float32()))
+		v.SetFloat(float64(t.Endian.Float32(t.buf)))
 	case Float64:
 		if _, e := t.Rd.Read(t.buf[:t.align]); e != nil {
 			return errors.Wrapf(e, "can not read float64")
 		}
 
-		v.SetFloat(t.float64())
+		v.SetFloat(t.Endian.Float64(t.buf))
 	case Array, Slice:
 		var ord = t.Rd
 		var mode = w.slice_mode
-
-		defer func() {
-			t.Rd = ord
-		}()
 
 		if w.slice_extra != nil {
 			switch w.slice_mode {
@@ -290,15 +256,12 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					return errors.WithStack(e)
 				}
 
-				var obuf = t.buf
-
 				switch kind {
 				case Bool:
 					slice := make([]bool, l)
 
 					for k := 0; k < l; k++ {
-						slice[k] = t.bool()
-						obuf = obuf[sz:]
+						slice[k] = t.Endian.Bool(t.buf[k:])
 					}
 
 					reflect.Copy(v, reflect.ValueOf(slice))
@@ -306,8 +269,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					slice := make([]int8, l)
 
 					for k := 0; k < l; k++ {
-						slice[k] = t.int8()
-						obuf = obuf[sz:]
+						slice[k] = t.Endian.Int8(t.buf[k:])
 					}
 
 					reflect.Copy(v, reflect.ValueOf(slice))
@@ -315,8 +277,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					slice := make([]int16, l)
 
 					for k := 0; k < l; k++ {
-						slice[k] = t.int16()
-						obuf = obuf[sz:]
+						slice[k] = t.Endian.Int16(t.buf[k*sz:])
 					}
 
 					reflect.Copy(v, reflect.ValueOf(slice))
@@ -324,8 +285,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					slice := make([]int32, l)
 
 					for k := 0; k < l; k++ {
-						slice[k] = t.int32()
-						obuf = obuf[sz:]
+						slice[k] = t.Endian.Int32(t.buf[k*sz:])
 					}
 
 					reflect.Copy(v, reflect.ValueOf(slice))
@@ -333,19 +293,17 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					slice := make([]int64, l)
 
 					for k := 0; k < l; k++ {
-						slice[k] = t.int64()
-						obuf = obuf[sz:]
+						slice[k] = t.Endian.Int64(t.buf[k*sz:])
 					}
 
 					reflect.Copy(v, reflect.ValueOf(slice))
 				case Uint8:
-					reflect.Copy(v, reflect.ValueOf(obuf))
+					reflect.Copy(v, reflect.ValueOf(t.buf))
 				case Uint16:
 					slice := make([]uint16, l)
 
 					for k := 0; k < l; k++ {
-						slice[k] = t.uint16()
-						obuf = obuf[sz:]
+						slice[k] = t.Endian.Uint16(t.buf[k*sz:])
 					}
 
 					reflect.Copy(v, reflect.ValueOf(slice))
@@ -353,8 +311,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					slice := make([]uint32, l)
 
 					for k := 0; k < l; k++ {
-						slice[k] = t.uint32()
-						obuf = obuf[sz:]
+						slice[k] = t.Endian.Uint32(t.buf[k*sz:])
 					}
 
 					reflect.Copy(v, reflect.ValueOf(slice))
@@ -362,8 +319,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					slice := make([]uint64, l)
 
 					for k := 0; k < l; k++ {
-						slice[k] = t.uint64()
-						obuf = obuf[sz:]
+						slice[k] = t.Endian.Uint64(t.buf[k*sz:])
 					}
 
 					reflect.Copy(v, reflect.ValueOf(slice))
@@ -371,8 +327,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					slice := make([]float32, l)
 
 					for k := 0; k < l; k++ {
-						slice[k] = t.float32()
-						obuf = obuf[sz:]
+						slice[k] = t.Endian.Float32(t.buf[k*sz:])
 					}
 
 					reflect.Copy(v, reflect.ValueOf(slice))
@@ -380,8 +335,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					slice := make([]float64, l)
 
 					for k := 0; k < l; k++ {
-						slice[k] = t.float64()
-						obuf = obuf[sz:]
+						slice[k] = t.Endian.Float64(t.buf[k*sz:])
 					}
 
 					reflect.Copy(v, reflect.ValueOf(slice))
@@ -405,6 +359,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					if e := t.decode(elem, v.Index(cnt)); e != nil {
 						if strings.HasSuffix(e.Error(), "EOF") {
 							v.SetLen(cnt)
+							t.Rd = ord
 							return nil
 						}
 
@@ -421,6 +376,8 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 		default:
 			panic("internal error")
 		}
+
+		t.Rd = ord
 	case Struct:
 		t.VM.Current = v
 		for k, f := range w.struct_elem {

@@ -13,6 +13,8 @@ var Types = map[string]*Type{
 	"uint64":  &Type{kind: Uint64},
 	"float32": &Type{kind: Float32},
 	"float64": &Type{kind: Float64},
+	"varint":  &Type{kind: Varint},
+	"uvarint": &Type{kind: UVarint},
 }
 
 // register new Type for type cast program

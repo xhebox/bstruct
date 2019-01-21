@@ -64,50 +64,6 @@ func NewEncoder() *Encoder {
 	return enc
 }
 
-func (t *Encoder) bool(b bool) {
-	t.Endian.PutBool(t.buf, b)
-}
-
-func (t *Encoder) int8(b int8) {
-	t.Endian.PutInt8(t.buf, b)
-}
-
-func (t *Encoder) int16(b int16) {
-	t.Endian.PutInt16(t.buf, b)
-}
-
-func (t *Encoder) int32(b int32) {
-	t.Endian.PutInt32(t.buf, b)
-}
-
-func (t *Encoder) int64(b int64) {
-	t.Endian.PutInt64(t.buf, b)
-}
-
-func (t *Encoder) uint8(b uint8) {
-	t.Endian.PutUint8(t.buf, b)
-}
-
-func (t *Encoder) uint16(b uint16) {
-	t.Endian.PutUint16(t.buf, b)
-}
-
-func (t *Encoder) uint32(b uint32) {
-	t.Endian.PutUint32(t.buf, b)
-}
-
-func (t *Encoder) uint64(b uint64) {
-	t.Endian.PutUint64(t.buf, b)
-}
-
-func (t *Encoder) float32(b float32) {
-	t.Endian.PutFloat32(t.buf, b)
-}
-
-func (t *Encoder) float64(b float64) {
-	t.Endian.PutFloat64(t.buf, b)
-}
-
 // pass the generated *Type, and a pointer to data
 func (t *Encoder) Encode(w *Type, data interface{}) error {
 	v := reflect.Indirect(reflect.ValueOf(data))
@@ -123,8 +79,18 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 		if _, e := t.Wt.Write(str_bytes(v.String())); e != nil {
 			return errors.Wrapf(e, "can not write string")
 		}
+	case Varint:
+		n := t.Endian.PutUVarint(t.buf, v.Uint())
+		if _, e := t.Wt.Write(t.buf[:n]); e != nil {
+			return errors.Wrapf(e, "can not write uvarint")
+		}
+	case UVarint:
+		n := t.Endian.PutVarint(t.buf, v.Int())
+		if _, e := t.Wt.Write(t.buf[:n]); e != nil {
+			return errors.Wrapf(e, "can not write varint")
+		}
 	case Bool:
-		t.bool(v.Bool())
+		t.Endian.PutBool(t.buf, v.Bool())
 
 		if t.align > 1 {
 			for k, e := 1, t.align; k < e; k++ {
@@ -136,7 +102,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			return errors.Wrapf(e, "can not write bool")
 		}
 	case Int8:
-		t.int8(int8(v.Int()))
+		t.Endian.PutInt8(t.buf, int8(v.Int()))
 
 		if t.align > 1 {
 			for k, e := 1, t.align; k < e; k++ {
@@ -148,7 +114,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			return errors.Wrapf(e, "can not write int8")
 		}
 	case Int16:
-		t.int16(int16(v.Int()))
+		t.Endian.PutInt16(t.buf, int16(v.Int()))
 
 		if t.align > 2 {
 			for k, e := 2, t.align; k < e; k++ {
@@ -160,7 +126,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			return errors.Wrapf(e, "can not write int16")
 		}
 	case Int32:
-		t.int32(int32(v.Int()))
+		t.Endian.PutInt32(t.buf, int32(v.Int()))
 
 		if t.align > 4 {
 			for k, e := 4, t.align; k < e; k++ {
@@ -172,7 +138,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			return errors.Wrapf(e, "can not write int32")
 		}
 	case Int64:
-		t.int64(v.Int())
+		t.Endian.PutInt64(t.buf, v.Int())
 
 		if t.align > 8 {
 			for k, e := 8, t.align; k < e; k++ {
@@ -184,7 +150,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			return errors.Wrapf(e, "can not write int64")
 		}
 	case Uint8:
-		t.uint8(uint8(v.Uint()))
+		t.Endian.PutUint8(t.buf, uint8(v.Uint()))
 
 		if t.align > 1 {
 			for k, e := 1, t.align; k < e; k++ {
@@ -196,7 +162,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			return errors.Wrapf(e, "can not write uint8")
 		}
 	case Uint16:
-		t.uint16(uint16(v.Uint()))
+		t.Endian.PutUint16(t.buf, uint16(v.Uint()))
 
 		if t.align > 2 {
 			for k, e := 2, t.align; k < e; k++ {
@@ -208,7 +174,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			return errors.Wrapf(e, "can not write uint16")
 		}
 	case Uint32:
-		t.uint32(uint32(v.Uint()))
+		t.Endian.PutUint32(t.buf, uint32(v.Uint()))
 
 		if t.align > 4 {
 			for k, e := 4, t.align; k < e; k++ {
@@ -220,7 +186,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			return errors.Wrapf(e, "can not write uint32")
 		}
 	case Uint64:
-		t.uint64(v.Uint())
+		t.Endian.PutUint64(t.buf, v.Uint())
 
 		if t.align > 8 {
 			for k, e := 8, t.align; k < e; k++ {
@@ -232,7 +198,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			return errors.Wrapf(e, "can not write uint64")
 		}
 	case Float32:
-		t.float32(float32(v.Float()))
+		t.Endian.PutFloat32(t.buf, float32(v.Float()))
 
 		if t.align > 4 {
 			for k, e := 4, t.align; k < e; k++ {
@@ -244,7 +210,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			return errors.Wrapf(e, "can not write float32")
 		}
 	case Float64:
-		t.float64(v.Float())
+		t.Endian.PutFloat64(t.buf, v.Float())
 
 		if t.align > 8 {
 			for k, e := 8, t.align; k < e; k++ {
@@ -271,28 +237,24 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 				t.buf = make([]byte, n)
 			}
 
-			var obuf = t.buf
-
 			switch kind {
 			case Bool:
 				slice := make([]bool, l)
 
 				reflect.Copy(reflect.ValueOf(slice), v)
 
-				for cnt := 0; cnt < l; cnt++ {
-					if slice[cnt] {
-						obuf[0] = 1
+				for k := 0; k < l; k++ {
+					if slice[k] {
+						t.buf[k] = 1
 					}
-					obuf = obuf[sz:]
 				}
 			case Int8:
 				slice := make([]int8, l)
 
 				reflect.Copy(reflect.ValueOf(slice), v)
 
-				for cnt := 0; cnt < l; cnt++ {
-					obuf[0] = byte(slice[cnt])
-					obuf = obuf[sz:]
+				for k := 0; k < l; k++ {
+					t.buf[k] = byte(slice[k])
 				}
 			case Uint8:
 				reflect.Copy(reflect.ValueOf(t.buf), v)
@@ -301,72 +263,64 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 
 				reflect.Copy(reflect.ValueOf(slice), v)
 
-				for cnt := 0; cnt < l; cnt++ {
-					t.Endian.PutUint16(obuf, slice[cnt])
-					obuf = obuf[sz:]
-				}
-			case Int16:
-				slice := make([]int16, l)
-
-				reflect.Copy(reflect.ValueOf(slice), v)
-
-				for cnt := 0; cnt < l; cnt++ {
-					t.Endian.PutUint16(obuf, uint16(slice[cnt]))
-					obuf = obuf[sz:]
+				for k := 0; k < l; k++ {
+					t.Endian.PutUint16(t.buf[k*sz:], slice[k])
 				}
 			case Uint32:
 				slice := make([]uint32, l)
 
 				reflect.Copy(reflect.ValueOf(slice), v)
 
-				for cnt := 0; cnt < l; cnt++ {
-					t.Endian.PutUint32(obuf, slice[cnt])
-					obuf = obuf[sz:]
-				}
-			case Int32:
-				slice := make([]int32, l)
-
-				reflect.Copy(reflect.ValueOf(slice), v)
-
-				for cnt := 0; cnt < l; cnt++ {
-					t.Endian.PutUint32(obuf, uint32(slice[cnt]))
-					obuf = obuf[sz:]
+				for k := 0; k < l; k++ {
+					t.Endian.PutUint32(t.buf[k*sz:], slice[k])
 				}
 			case Uint64:
 				slice := make([]uint64, l)
 
 				reflect.Copy(reflect.ValueOf(slice), v)
 
-				for cnt := 0; cnt < l; cnt++ {
-					t.Endian.PutUint64(obuf, slice[cnt])
-					obuf = obuf[sz:]
+				for k := 0; k < l; k++ {
+					t.Endian.PutUint64(t.buf[k*sz:], slice[k])
+				}
+			case Int16:
+				slice := make([]int16, l)
+
+				reflect.Copy(reflect.ValueOf(slice), v)
+
+				for k := 0; k < l; k++ {
+					t.Endian.PutUint16(t.buf[k*sz:], uint16(slice[k]))
+				}
+			case Int32:
+				slice := make([]int32, l)
+
+				reflect.Copy(reflect.ValueOf(slice), v)
+
+				for k := 0; k < l; k++ {
+					t.Endian.PutUint32(t.buf[k*sz:], uint32(slice[k]))
 				}
 			case Int64:
 				slice := make([]int64, l)
 
 				reflect.Copy(reflect.ValueOf(slice), v)
 
-				for cnt := 0; cnt < l; cnt++ {
-					t.Endian.PutUint64(obuf, uint64(slice[cnt]))
-					obuf = obuf[sz:]
+				for k := 0; k < l; k++ {
+					t.Endian.PutUint64(t.buf[k*sz:], uint64(slice[k]))
 				}
 			case Float32:
 				slice := make([]float32, l)
 
 				reflect.Copy(reflect.ValueOf(slice), v)
 
-				for cnt := 0; cnt < l; cnt++ {
-					t.Endian.PutFloat32(obuf, slice[cnt])
-					obuf = obuf[sz:]
+				for k := 0; k < l; k++ {
+					t.Endian.PutFloat32(t.buf[k*sz:], slice[k])
 				}
 			case Float64:
 				slice := make([]float64, l)
 
 				reflect.Copy(reflect.ValueOf(slice), v)
 
-				for cnt := 0; cnt < l; cnt++ {
-					t.Endian.PutFloat64(obuf, slice[cnt])
-					obuf = obuf[sz:]
+				for k := 0; k < l; k++ {
+					t.Endian.PutFloat64(t.buf[k*sz:], slice[k])
 				}
 			}
 

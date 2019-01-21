@@ -47,17 +47,17 @@ type big struct {
 }
 ```
 
-std stands for binary/encoding:
+std stands for binary/encoding, time of generate coder&Type is not counted:
 
 ```
-BenchmarkSmallDecode-4           3000000               429 ns/op
-BenchmarkStdSmallDecode-4        2000000               667 ns/op
-BenchmarkBigDecode-4             3000000               434 ns/op
-BenchmarkStdBigDecode-4           200000              6393 ns/op
-BenchmarkSmallEncode-4           5000000               380 ns/op
-BenchmarkStdSmallEncode-4        2000000               958 ns/op
-BenchmarkBigEncode-4             2000000               668 ns/op
-BenchmarkStdBigEncode-4           200000              7182 ns/op
+BenchmarkSmallDecode-4           3000000               414 ns/op
+BenchmarkStdSmallDecode-4        2000000               676 ns/op
+BenchmarkBigDecode-4             3000000               426 ns/op
+BenchmarkStdBigDecode-4           200000              6419 ns/op
+BenchmarkSmallEncode-4           5000000               381 ns/op
+BenchmarkStdSmallEncode-4        2000000               971 ns/op
+BenchmarkBigEncode-4             2000000               669 ns/op
+BenchmarkStdBigEncode-4           200000              7225 ns/op
 ```
 
 you can get it by running `go test -bench .`
@@ -149,6 +149,17 @@ Int16 []struct {
 
 btw, stack and external variable map just have a size of 256. It's not to be modified by design.
 
+# varint
+
+bstruct supports varint, too. align makes no effects to varint, but endian does. lsb will decode the first 7-bit group as the right most 7-bit. msb will decode the first 7-bit group as the left most 7-bit.
+
+varint is excepted to use with int types, while uvarint is excepted to use with uint types.
+
+```go
+Int16 int32 `type:"varint"`
+Int16 uint32 `type:"uvarint"`
+```
+
 # slice
 
 in bstruct, special tags apply to slice.
@@ -179,10 +190,11 @@ in these programs, however, `current` is not pointed to the parent struct of the
 
 # string
 
-as string is immutable, it does not implement slice mode. string is seen as a separate type, and is skipped automatically when read. the only way to change its value is assign.
+as string is immutable, it does not implement slice mode. string is seen as a separate type, and is skipped automatically when read. the only way to change its value is assignment.
 
 # other thins
 
 - endian: defaults to host endianess.
 - elem of slice: because struct tag is only applied to field, so elem of slice is not seen as a field. tag therefore, is applied to slice itself rather than elem.
 - nested slice/string: tag is applied to slice itself, so it's impossible to specify tag for the second dimesion slice. so nested slice/string is not allowed. but you can wrap it as a struct, then it's ok.
+- since bstruct is using read frequently, i'd recommend bufio if it's a stream. otherwise bytes.Reader is enough.

@@ -41,7 +41,8 @@ const (
 	String
 	Struct
 	unsafepointerf // wasted
-	Vlq
+	UVarint
+	Varint
 )
 
 func (this Kind) String() string {
@@ -82,8 +83,10 @@ func (this Kind) String() string {
 		return "struct"
 	case Interface:
 		return "interface{}"
-	case Vlq:
-		return "vlq"
+	case UVarint:
+		return "uvarint"
+	case Varint:
+		return "varint"
 	default:
 		return "wasted"
 	}
