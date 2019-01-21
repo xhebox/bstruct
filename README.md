@@ -104,18 +104,6 @@ Int16 int16 `align:"32"`
 Int16 int16 `align:"64"`
 ```
 
-# type flag
-
-you are able to cast type. it's using `reflect.Set` magic, so it's your own duty to avoid `panic`, e.g. type must be of same kind. you can register your own Type by `RegisterType(...)`.
-
-```go
-Int16 int16 `type:"int8"` // it's OK
-Int16 int16 `type:"uint8"` // will panic
-Int16 interface{} `type:"int16"` // it's OK
-```
-
-interface must have a type program.
-
 # prog flag
 
 the program, must compile, in hostEndian.
@@ -127,8 +115,9 @@ it's not that powerful, but does have a reasonable usage in such case.
 there're three builtin functions:
 
 - 'view(..)': print every argument using fmt.Println
-- 'read(int)': will read n bytes from underlying reader and return an array.
-- 'fill(int)': will write n bytes to underlying writer.
+- 'read(int)': will read n bytes from underlying reader and return an array. only available when read.
+- 'fill(int)': will write n bytes to underlying writer. only available when write.
+- 'startcount()/stopcount() int64': like a stopwatch. stopcount return bytes readed. only available when read.
 
 and two variable:
 
@@ -149,6 +138,18 @@ Int16 []struct {
 
 btw, stack and external variable map just have a size of 256. It's not to be modified by design.
 
+# type flag
+
+you are able to cast type. it's using `reflect.Set` magic, so it's your own duty to avoid `panic`, e.g. type must be of same kind. you can register your own Type by `RegisterType(...)`.
+
+```go
+Int16 int16 `type:"'int8'"` // it's OK
+Int16 int16 `type:"'uint8'"` // will panic
+Int16 interface{} `type:"'int16'"` // it's OK
+```
+
+interface must have a type program.
+
 # varint
 
 bstruct supports varint, too. align makes no effects to varint, but endian does. lsb will decode the first 7-bit group as the right most 7-bit. msb will decode the first 7-bit group as the left most 7-bit.
@@ -156,8 +157,8 @@ bstruct supports varint, too. align makes no effects to varint, but endian does.
 varint is excepted to use with int types, while uvarint is excepted to use with uint types.
 
 ```go
-Int16 int32 `type:"varint"`
-Int16 uint32 `type:"uvarint"`
+Int16 int32 `type:"'varint'"`
+Int16 uint32 `type:"'uvarint'"`
 ```
 
 # slice

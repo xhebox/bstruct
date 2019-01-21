@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	max = int(^uint(0) >> 1)
+	max   = int(^uint(0) >> 1)
+	max64 = int64(^uint64(0) >> 1)
 )
 
 type sliceMode uint8
@@ -92,6 +93,15 @@ func NewDecoder() *Decoder {
 			panic(e)
 		}
 		return buf
+	})
+	dec.VM.Set("startcount", func() {
+		dec.Rd = io.LimitReader(dec.Rd, max64)
+	})
+	dec.VM.Set("stopcount", func() (r int64) {
+		rd := dec.Rd.(*io.LimitedReader)
+		r = max64 - rd.N
+		dec.Rd = rd.R
+		return
 	})
 
 	return dec
@@ -217,7 +227,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 				if l > 0 {
 					sz := basicsize(w.slice_elem.Kind())
 					if sz <= 0 {
-						t.Rd = &io.LimitedReader{R: ord, N: int64(l)}
+						t.Rd = io.LimitReader(ord, int64(l))
 						mode = sliceModeEOF
 
 						v.Set(reflect.MakeSlice(v.Type(), l, l))
