@@ -1,6 +1,10 @@
 package byteorder
 
-import "math"
+import (
+	"errors"
+	"io"
+	"math"
+)
 
 const (
 	// false stands for msb
@@ -71,6 +75,72 @@ func (t ByteOrder) Float32(b []byte) float32 {
 
 func (t ByteOrder) Float64(b []byte) float64 {
 	return math.Float64frombits(t.Uint64(b))
+}
+
+// lsb means decode the first group as the right most 7 bits
+//
+// msb means decode the first group as the left most 7 bits
+func (t ByteOrder) UVarint(b io.ByteReader) (uint64, error) {
+	r := uint64(0)
+	c := 0
+
+	if t {
+		s := uint(0)
+		for {
+			if c == 10 {
+				return 0, errors.New("overflowed uint64")
+			}
+
+			ch, e := b.ReadByte()
+			if e != nil {
+				return 0, e
+			}
+
+			if ch&0x80 == 0 {
+				r |= uint64(ch&0x7F) << s
+				break
+			}
+
+			r |= uint64(ch&0x7F) << s
+			s += 7
+			c++
+		}
+	} else {
+		for {
+			if c == 10 {
+				return 0, errors.New("overflowed uint64")
+			}
+
+			ch, e := b.ReadByte()
+			if e != nil {
+				return 0, e
+			}
+
+			if ch&0x80 == 0 {
+				r <<= 7
+				r |= uint64(ch & 0x7F)
+				break
+			}
+
+			r <<= 7
+			r |= uint64(ch & 0x7F)
+			c++
+		}
+	}
+
+	return r, nil
+}
+
+// zigzag encoding
+func (t ByteOrder) Varint(b io.ByteReader) (int64, error) {
+	ux, e := t.UVarint(b)
+
+	x := int64(ux >> 1)
+	if ux&1 != 0 {
+		x = ^x
+	}
+
+	return x, e
 }
 
 func (t ByteOrder) PutBool(b []byte, v bool) {
@@ -156,4 +226,44 @@ func (t ByteOrder) PutFloat32(b []byte, v float32) {
 
 func (t ByteOrder) PutFloat64(b []byte, v float64) {
 	t.PutUint64(b, math.Float64bits(v))
+}
+
+func (t ByteOrder) PutUVarint(b []byte, v uint64) int {
+	if t {
+		c := 0
+
+		for v >= 0x80 {
+			b[c] = byte(v&0x7F) | 0x80
+			v >>= 7
+			c++
+		}
+		b[c] = byte(v & 0x7F)
+
+		return c
+	} else {
+		var buf [16]byte
+		c := 15
+
+		buf[c] = byte(v & 0x7F)
+		for v >= 0x80 {
+			v >>= 7
+			c--
+
+			buf[c] = byte(v&0x7F) | 0x80
+		}
+
+		copy(b, buf[c:])
+
+		return 15 - c
+	}
+}
+
+// zigzag encoding
+func (t ByteOrder) PutVarint(b []byte, v int64) int {
+	uv := uint64(v) << 1
+	if v < 0 {
+		uv = ^uv
+	}
+
+	return t.PutUVarint(b, uv)
 }
