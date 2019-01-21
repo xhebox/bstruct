@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/xhebox/bstruct/byteorder"
 	vm "github.com/xhebox/bstruct/tinyvm"
 )
 
@@ -34,9 +35,9 @@ func New(data interface{}) (*Type, error) {
 	{
 		a := 0xABCD
 		if uint8(a) == 0xAB {
-			HostEndian = BigEndian
+			HostEndian = byteorder.BigEndian
 		} else {
-			HostEndian = LittleEndian
+			HostEndian = byteorder.LittleEndian
 		}
 		compiler.Endian = HostEndian
 	}

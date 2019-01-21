@@ -67,9 +67,9 @@ func NewDecoder() *Decoder {
 	{
 		a := 0xABCD
 		if uint8(a) == 0xAB {
-			HostEndian = BigEndian
+			HostEndian = byteorder.BigEndian
 		} else {
-			HostEndian = LittleEndian
+			HostEndian = byteorder.LittleEndian
 		}
 	}
 
@@ -451,9 +451,9 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 
 					if f.flag&FlagCusEnd != 0 {
 						if f.flag&FlagBig != 0 {
-							t.Endian = BigEndian
+							t.Endian = byteorder.BigEndian
 						} else {
-							t.Endian = LittleEndian
+							t.Endian = byteorder.LittleEndian
 						}
 					}
 

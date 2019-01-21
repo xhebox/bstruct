@@ -2,6 +2,13 @@ package byteorder
 
 import "math"
 
+const (
+	// false stands for msb
+	// true stands for lsb
+	BigEndian    = ByteOrder(false)
+	LittleEndian = ByteOrder(true)
+)
+
 // like the official one, with some enchancements, but without interface{}
 type ByteOrder bool
 
