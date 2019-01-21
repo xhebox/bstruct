@@ -336,6 +336,8 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			}
 		}
 	case Struct:
+		oricur := t.VM.Current
+
 		t.VM.Current = v
 		for k, f := range w.struct_elem {
 			var fw = f.rtype
@@ -387,6 +389,8 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 				}
 			}
 		}
+
+		t.VM.Current = oricur
 	default:
 		return errors.Errorf("unsupported type: %v\n", w.kind)
 	}
