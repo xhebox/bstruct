@@ -1,6 +1,6 @@
 package bstruct
 
-var types = map[string]*Type{
+var Types = map[string]*Type{
 	"bool":    &Type{kind: Bool},
 	"int8":    &Type{kind: Int8},
 	"int16":   &Type{kind: Int16},
@@ -17,5 +17,5 @@ var types = map[string]*Type{
 
 // register new Type for type cast program
 func RegisterType(name string, t *Type) {
-	types[name] = t
+	Types[name] = t
 }

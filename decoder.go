@@ -431,7 +431,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					return errors.Wrapf(e, "can not execute field tpm program")
 				}
 
-				rtype, ok := types[t.VM.Ret().ToString()]
+				rtype, ok := Types[t.VM.Ret().ToString()]
 				if !ok {
 					return errors.New("can not resolve type casting")
 				}
