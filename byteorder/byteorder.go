@@ -80,9 +80,11 @@ func (t ByteOrder) Float64(b []byte) float64 {
 // lsb means decode the first group as the right most 7 bits
 //
 // msb means decode the first group as the left most 7 bits
-func (t ByteOrder) UVarint(b io.ByteReader) (uint64, error) {
+func (t ByteOrder) UVarint(b io.Reader) (uint64, error) {
 	r := uint64(0)
 	c := 0
+
+	ch := []byte{0}
 
 	if t {
 		s := uint(0)
@@ -91,17 +93,16 @@ func (t ByteOrder) UVarint(b io.ByteReader) (uint64, error) {
 				return 0, errors.New("overflowed uint64")
 			}
 
-			ch, e := b.ReadByte()
-			if e != nil {
+			if _, e := b.Read(ch); e != nil {
 				return 0, e
 			}
 
-			if ch&0x80 == 0 {
-				r |= uint64(ch&0x7F) << s
+			if ch[0]&0x80 == 0 {
+				r |= uint64(ch[0]&0x7F) << s
 				break
 			}
 
-			r |= uint64(ch&0x7F) << s
+			r |= uint64(ch[0]&0x7F) << s
 			s += 7
 			c++
 		}
@@ -111,19 +112,18 @@ func (t ByteOrder) UVarint(b io.ByteReader) (uint64, error) {
 				return 0, errors.New("overflowed uint64")
 			}
 
-			ch, e := b.ReadByte()
-			if e != nil {
+			if _, e := b.Read(ch); e != nil {
 				return 0, e
 			}
 
-			if ch&0x80 == 0 {
+			if ch[0]&0x80 == 0 {
 				r <<= 7
-				r |= uint64(ch & 0x7F)
+				r |= uint64(ch[0] & 0x7F)
 				break
 			}
 
 			r <<= 7
-			r |= uint64(ch & 0x7F)
+			r |= uint64(ch[0] & 0x7F)
 			c++
 		}
 	}
@@ -132,7 +132,7 @@ func (t ByteOrder) UVarint(b io.ByteReader) (uint64, error) {
 }
 
 // zigzag encoding
-func (t ByteOrder) Varint(b io.ByteReader) (int64, error) {
+func (t ByteOrder) Varint(b io.Reader) (int64, error) {
 	ux, e := t.UVarint(b)
 
 	x := int64(ux >> 1)
