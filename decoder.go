@@ -216,7 +216,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 				} else if l == 0 {
 					return nil
 				} else {
-					return errors.New("length program returned a negative")
+					return errors.Errorf("length program returned a negative %d", l)
 				}
 			case sliceModeSize:
 				if e := t.VM.Exec(w.slice_extra); e != nil {
@@ -405,7 +405,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 				if !ok {
 					return errors.New("can not resolve type casting")
 				}
-				f.rtype = rtype
+				fw = rtype
 			}
 
 			if f.rdm != nil {
