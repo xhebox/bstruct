@@ -42,10 +42,14 @@ func New(data interface{}) (*Type, error) {
 		compiler.Endian = HostEndian
 	}
 
-	v := reflect.Indirect(reflect.ValueOf(data))
+	v := reflect.ValueOf(data).Type()
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	compiler.R = v
+
 	switch v.Kind() {
 	case reflect.Bool, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.Array, reflect.Slice, reflect.String, reflect.Struct:
-		compiler.R = v.Type()
 		return genType(compiler, compiler.R)
 	default:
 		return nil, errors.Errorf("unsupported type %v", v.Kind())
