@@ -173,6 +173,8 @@ for convenience, slice has three **reading** modes:
 - modesize: mark tag 'size' as a program. prog should return the space in bytes before readning. zero size skip. and if elem is of basic type, it becomes modelen. or it's modeeof with a limitedreader.
 - modeeof: it will read until EOF, EOF is not an error.
 
+slice defaults to modeeof, if `v.Len() != 0` at runtime, it goes to modelen.
+
 as modesize, modeeof is not able to prealloc the slice, growing slice will leave useless buffer there, which may occupy times of space than the original data size.
 
 there're two global variables can be tuned:
@@ -188,8 +190,6 @@ Int16 []struct{
 	A [4]byte
 } `size:"root.Int8"` // but not this one, so more space is taken
 ```
-
-in these programs, however, `current` is not pointed to the parent struct of the current field, but the elem itself.
 
 # string
 
