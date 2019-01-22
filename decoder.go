@@ -1,8 +1,10 @@
 package bstruct
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"reflect"
 	"strings"
 
@@ -93,6 +95,19 @@ func NewDecoder() *Decoder {
 			panic(e)
 		}
 		return buf
+	})
+	dec.VM.Set("discard", func(x int64) {
+		if rd, ok := dec.Rd.(*bufio.Reader); ok {
+			_, e := rd.Discard(int(x))
+			if e != nil {
+				panic(e)
+			}
+		} else {
+			_, e := io.CopyN(ioutil.Discard, dec.Rd, x)
+			if e != nil {
+				panic(e)
+			}
+		}
 	})
 	dec.VM.Set("startcount", func() {
 		dec.Rd = io.LimitReader(dec.Rd, max64)
