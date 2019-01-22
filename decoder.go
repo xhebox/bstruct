@@ -219,10 +219,6 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 
 		if w.slice_extra != nil {
 			switch w.slice_mode {
-			case sliceModeEOF:
-				if v.Len() != 0 {
-					mode = sliceModeLen
-				}
 			case sliceModeLen:
 				if e := t.VM.Exec(w.slice_extra); e != nil {
 					return errors.Wrapf(e, "can not execute length program")
@@ -261,6 +257,10 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					mode = sliceModeEOF
 				}
 			}
+		}
+
+		if mode == sliceModeEOF && v.Len() != 0 {
+			mode = sliceModeLen
 		}
 
 		switch mode {
