@@ -353,6 +353,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 					return errors.New("can not resolve type casting")
 				}
 				fw = rtype
+				f.align = basicsize(rtype.kind)
 			}
 
 			if f.wtm != nil {
