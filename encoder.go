@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/xhebox/bstruct/byteorder"
-	vm "github.com/xhebox/bstruct/tinyvm"
+	"github.com/xhebox/bstruct/tinyvm"
 )
 
 func str_bytes(s string) []byte {
@@ -25,7 +25,7 @@ func str_bytes(s string) []byte {
 type Encoder struct {
 	Wt     io.Writer
 	Endian byteorder.ByteOrder
-	VM     *vm.VM
+	VM     *tinyvm.VM
 	align  int
 	buf    []byte
 }
@@ -43,7 +43,7 @@ func NewEncoder() *Encoder {
 
 	enc := &Encoder{
 		Endian: HostEndian,
-		VM: &vm.VM{
+		VM: &tinyvm.VM{
 			Endian: HostEndian,
 		},
 		buf: make([]byte, 16),

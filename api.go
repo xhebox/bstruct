@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/xhebox/bstruct/byteorder"
-	vm "github.com/xhebox/bstruct/tinyvm"
+	"github.com/xhebox/bstruct/tinyvm"
 )
 
 // just like New(), new type or panic
@@ -30,7 +30,7 @@ func MustNew(data interface{}) *Type {
 //
 // most importantly, always generate Type by this function instead of new(Type) or Type{}
 func New(data interface{}) (*Type, error) {
-	compiler := vm.NewCompiler()
+	compiler := tinyvm.NewCompiler()
 
 	{
 		a := 0xABCD
@@ -56,7 +56,7 @@ func New(data interface{}) (*Type, error) {
 	}
 }
 
-func genType(compiler *vm.Compiler, cur reflect.Type) (r *Type, e error) {
+func genType(compiler *tinyvm.Compiler, cur reflect.Type) (r *Type, e error) {
 	switch kind := cur.Kind(); kind {
 	case reflect.Bool, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String:
 		r = &Type{kind: Kind(kind)}
@@ -78,12 +78,12 @@ func genType(compiler *vm.Compiler, cur reflect.Type) (r *Type, e error) {
 
 		r = &Type{
 			kind:       Kind(kind),
-			slice_mode: sliceModeEOF,
+			slice_mode: SliceModeEOF,
 			slice_elem: elem,
 		}
 
 		if kind == reflect.Array {
-			r.slice_mode = sliceModeLen
+			r.slice_mode = SliceModeLen
 		}
 	case reflect.Struct:
 		r = &Type{
@@ -118,10 +118,10 @@ func genType(compiler *vm.Compiler, cur reflect.Type) (r *Type, e error) {
 	return r, nil
 }
 
-func genField(compiler *vm.Compiler, field reflect.StructField, prt reflect.Type) (r *Field, e error) {
+func genField(compiler *tinyvm.Compiler, field reflect.StructField, prt reflect.Type) (r *Field, e error) {
 	var flag FieldFlag
 	var align int
-	var tpm, rdm, rdn, wtm, wtn *vm.Prog
+	var tpm, rdm, rdn, wtm, wtn *tinyvm.Prog
 	var cur = field.Type
 	var tag = field.Tag
 
@@ -250,7 +250,7 @@ func genField(compiler *vm.Compiler, field reflect.StructField, prt reflect.Type
 		r = &Field{
 			rtype: &Type{
 				kind:       Kind(kind),
-				slice_mode: sliceModeEOF,
+				slice_mode: SliceModeEOF,
 				slice_elem: elem,
 			},
 			flag:  flag,
@@ -263,14 +263,14 @@ func genField(compiler *vm.Compiler, field reflect.StructField, prt reflect.Type
 		}
 
 		if kind == reflect.Array {
-			r.rtype.slice_mode = sliceModeLen
+			r.rtype.slice_mode = SliceModeLen
 		}
 
 		if length := tag.Get("length"); len(length) != 0 {
-			r.rtype.slice_mode = sliceModeLen
+			r.rtype.slice_mode = SliceModeLen
 			r.rtype.slice_extra = compiler.MustCompile(length)
 		} else if size := tag.Get("size"); len(size) != 0 {
-			r.rtype.slice_mode = sliceModeSize
+			r.rtype.slice_mode = SliceModeSize
 			r.rtype.slice_extra = compiler.MustCompile(size)
 		}
 	case reflect.Struct:

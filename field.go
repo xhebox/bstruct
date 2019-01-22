@@ -1,6 +1,6 @@
 package bstruct
 
-import vm "github.com/xhebox/bstruct/tinyvm"
+import "github.com/xhebox/bstruct/tinyvm"
 
 // implements field
 // normal field implementation
@@ -9,11 +9,11 @@ type Field struct {
 	name  string
 	flag  FieldFlag
 	align int
-	tpm   *vm.Prog
-	rdm   *vm.Prog
-	rdn   *vm.Prog
-	wtm   *vm.Prog
-	wtn   *vm.Prog
+	tpm   *tinyvm.Prog
+	rdm   *tinyvm.Prog
+	rdn   *tinyvm.Prog
+	wtm   *tinyvm.Prog
+	wtn   *tinyvm.Prog
 }
 
 // Field Name

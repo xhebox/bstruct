@@ -9,7 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/xhebox/bstruct/byteorder"
-	vm "github.com/xhebox/bstruct/tinyvm"
+	"github.com/xhebox/bstruct/tinyvm"
 )
 
 const (
@@ -17,12 +17,12 @@ const (
 	max64 = int64(^uint64(0) >> 1)
 )
 
-type sliceMode uint8
+type SliceMode uint8
 
 const (
-	sliceModeLen sliceMode = iota
-	sliceModeEOF
-	sliceModeSize
+	SliceModeLen SliceMode = iota
+	SliceModeEOF
+	SliceModeSize
 )
 
 var (
@@ -59,7 +59,7 @@ func basicsize(k Kind) int {
 type Decoder struct {
 	Rd     io.Reader
 	Endian byteorder.ByteOrder
-	VM     *vm.VM
+	VM     *tinyvm.VM
 	align  int
 	buf    []byte
 }
@@ -77,7 +77,7 @@ func NewDecoder() *Decoder {
 
 	dec := &Decoder{
 		Endian: HostEndian,
-		VM: &vm.VM{
+		VM: &tinyvm.VM{
 			Endian: HostEndian,
 		},
 		buf: make([]byte, 16),
@@ -219,7 +219,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 
 		if w.slice_extra != nil {
 			switch w.slice_mode {
-			case sliceModeLen:
+			case SliceModeLen:
 				if e := t.VM.Exec(w.slice_extra); e != nil {
 					return errors.Wrapf(e, "can not execute length program")
 				}
@@ -232,7 +232,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 				} else {
 					return errors.Errorf("length program returned a negative %d", l)
 				}
-			case sliceModeSize:
+			case SliceModeSize:
 				if e := t.VM.Exec(w.slice_extra); e != nil {
 					return errors.Wrapf(e, "can not execute size program")
 				}
@@ -242,29 +242,29 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					sz := basicsize(w.slice_elem.Kind())
 					if sz <= 0 {
 						t.Rd = io.LimitReader(ord, int64(l))
-						mode = sliceModeEOF
+						mode = SliceModeEOF
 
 						v.Set(reflect.MakeSlice(v.Type(), l, l))
 					} else {
 						cnt := int(l) / sz
 						v.Set(reflect.MakeSlice(v.Type(), cnt, cnt))
 
-						mode = sliceModeLen
+						mode = SliceModeLen
 					}
 				} else if l == 0 {
 					return nil
 				} else {
-					mode = sliceModeEOF
+					mode = SliceModeEOF
 				}
 			}
 		}
 
-		if mode == sliceModeEOF && v.Len() != 0 {
-			mode = sliceModeLen
+		if mode == SliceModeEOF && v.Len() != 0 {
+			mode = SliceModeLen
 		}
 
 		switch mode {
-		case sliceModeLen:
+		case SliceModeLen:
 			l := v.Len()
 			elem := w.slice_elem
 			kind := elem.kind
@@ -376,7 +376,7 @@ func (t *Decoder) decode(w *Type, v reflect.Value) error {
 					}
 				}
 			}
-		case sliceModeEOF:
+		case SliceModeEOF:
 			vtype := v.Type()
 			elem := w.slice_elem
 			v.Set(reflect.MakeSlice(vtype, SliceInitLen, SliceInitLen))
