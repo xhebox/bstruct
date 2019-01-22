@@ -54,6 +54,17 @@ func NewEncoder() *Encoder {
 			fmt.Println(v)
 		}
 	})
+	enc.VM.Set("skip", func(x int64) {
+		wt, ok := enc.Wt.(io.Seeker)
+		if !ok {
+			panic("writer does not implement seeker")
+		}
+
+		_, e := wt.Seek(x, io.SeekCurrent)
+		if e != nil {
+			panic(e)
+		}
+	})
 	enc.VM.Set("fill", func(x int64) {
 		buf := make([]byte, x)
 		if _, e := enc.Wt.Write(buf); e != nil {

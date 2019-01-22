@@ -116,7 +116,8 @@ there're three builtin functions:
 
 - 'view(..)': print every argument using fmt.Println
 - 'read(int) []byte': will read n bytes from underlying reader and return an array. only available when read.
-- 'discard(int)': will skip n bytes from underlying reader. only available when read.
+- 'discard(int)': will skip n bytes from underlying reader or just use seek if reader implements io.Seeker. only available when read.
+- 'skip(int)': will seek n bytes on underlying writer, writer must implement seeker. only available when write.
 - 'fill(int)': will write n bytes to underlying writer. only available when write.
 - 'startcount()/stopcount() int64': like a stopwatch. stopcount return bytes readed. only available when read.
 
