@@ -143,6 +143,60 @@ func (t ByteOrder) Varint(b io.Reader) (int64, error) {
 	return x, e
 }
 
+// slice version
+func (t ByteOrder) UVarintB(ch []byte) (uint64, int, error) {
+	r := uint64(0)
+	c := 0
+
+	if t {
+		s := uint(0)
+		for {
+			if c == 10 {
+				return 0, 0, errors.New("overflowed uint64")
+			}
+
+			if ch[c]&0x80 == 0 {
+				r |= uint64(ch[c]&0x7F) << s
+				break
+			}
+
+			r |= uint64(ch[c]&0x7F) << s
+			s += 7
+			c++
+		}
+	} else {
+		for {
+			if c == 10 {
+				return 0, 0, errors.New("overflowed uint64")
+			}
+
+			if ch[c]&0x80 == 0 {
+				r <<= 7
+				r |= uint64(ch[c] & 0x7F)
+				break
+			}
+
+			r <<= 7
+			r |= uint64(ch[c] & 0x7F)
+			c++
+		}
+	}
+
+	return r, c, nil
+}
+
+// slice version
+func (t ByteOrder) VarintB(b []byte) (int64, int, error) {
+	ux, l, e := t.UVarintB(b)
+
+	x := int64(ux >> 1)
+	if ux&1 != 0 {
+		x = ^x
+	}
+
+	return x, l, e
+}
+
 func (t ByteOrder) PutBool(b []byte, v bool) {
 	if v {
 		b[0] = 1
