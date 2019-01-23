@@ -182,7 +182,7 @@ func (t ByteOrder) UVarintB(ch []byte) (uint64, int, error) {
 		}
 	}
 
-	return r, c, nil
+	return r, c + 1, nil
 }
 
 // slice version
