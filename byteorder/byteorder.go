@@ -293,7 +293,7 @@ func (t ByteOrder) PutUVarint(b []byte, v uint64) int {
 		}
 		b[c] = byte(v & 0x7F)
 
-		return c
+		return c + 1
 	} else {
 		var buf [16]byte
 		c := 15
@@ -308,7 +308,7 @@ func (t ByteOrder) PutUVarint(b []byte, v uint64) int {
 
 		copy(b, buf[c:])
 
-		return 15 - c
+		return 16 - c
 	}
 }
 
