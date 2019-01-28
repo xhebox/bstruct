@@ -321,3 +321,11 @@ func (t ByteOrder) PutVarint(b []byte, v int64) int {
 
 	return t.PutUVarint(b, uv)
 }
+
+func (t ByteOrder) String() string {
+	if t {
+		return "LittleEndian"
+	} else {
+		return "BigEndian"
+	}
+}
