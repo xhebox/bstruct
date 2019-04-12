@@ -81,66 +81,44 @@ func (t ByteOrder) Float64(b []byte) float64 {
 //
 // msb means decode the first group as the left most 7 bits
 func (t ByteOrder) UVarint(b io.Reader) (uint64, error) {
-	r := uint64(0)
 	c := 0
+	var ch [16]byte
 
-	ch := []byte{0}
-
-	if t {
-		s := uint(0)
-		for {
-			if c == 10 {
-				return 0, errors.New("overflowed uint64")
-			}
-
-			if _, e := b.Read(ch); e != nil {
-				return 0, e
-			}
-
-			if ch[0]&0x80 == 0 {
-				r |= uint64(ch[0]&0x7F) << s
-				break
-			}
-
-			r |= uint64(ch[0]&0x7F) << s
-			s += 7
-			c++
+	for {
+		if _, e := b.Read(ch[c:]); e != nil {
+			return 0, e
 		}
-	} else {
-		for {
-			if c == 10 {
-				return 0, errors.New("overflowed uint64")
-			}
 
-			if _, e := b.Read(ch); e != nil {
-				return 0, e
-			}
-
-			if ch[0]&0x80 == 0 {
-				r <<= 7
-				r |= uint64(ch[0] & 0x7F)
-				break
-			}
-
-			r <<= 7
-			r |= uint64(ch[0] & 0x7F)
-			c++
+		if ch[0]&0x80 == 0 {
+			break
 		}
+
+		c++
 	}
 
-	return r, nil
+	r, _, e := t.UVarintB(ch[:c])
+	return r, e
 }
 
 // zigzag encoding
 func (t ByteOrder) Varint(b io.Reader) (int64, error) {
-	ux, e := t.UVarint(b)
+	c := 0
+	var ch [16]byte
 
-	x := int64(ux >> 1)
-	if ux&1 != 0 {
-		x = ^x
+	for {
+		if _, e := b.Read(ch[c:]); e != nil {
+			return 0, e
+		}
+
+		if ch[0]&0x80 == 0 {
+			break
+		}
+
+		c++
 	}
 
-	return x, e
+	r, _, e := t.VarintB(ch[:c])
+	return r, e
 }
 
 // slice version
@@ -283,50 +261,29 @@ func (t ByteOrder) PutFloat64(b []byte, v float64) {
 }
 
 func (t ByteOrder) PutUVarint(out io.Writer, v uint64) error {
-	ch := []byte{0}
+	var ch [16]byte
 
-	if t {
-		for v >= 0x80 {
-			ch[0] = byte(v&0x7F) | 0x80
-			_, e := out.Write(ch)
-			if e != nil {
-				return e
-			}
-			v >>= 7
-		}
-		ch[0] = byte(v & 0x7F)
-		_, e := out.Write(ch)
-		if e != nil {
-			return e
-		}
+	l := t.PutUVarintB(ch[:], v)
 
-	} else {
-		ch[0] = byte(v & 0x7F)
-		_, e := out.Write(ch)
-		if e != nil {
-			return e
-		}
-
-		for v >= 0x80 {
-			v >>= 7
-			ch[0] = byte(v&0x7F) | 0x80
-			_, e := out.Write(ch)
-			if e != nil {
-				return e
-			}
-		}
+	_, e := out.Write(ch[:l])
+	if e != nil {
+		return e
 	}
 
 	return nil
 }
 
 func (t ByteOrder) PutVarint(out io.Writer, v int64) error {
-	uv := uint64(v) << 1
-	if v < 0 {
-		uv = ^uv
+	var ch [16]byte
+
+	l := t.PutVarintB(ch[:], v)
+
+	_, e := out.Write(ch[:l])
+	if e != nil {
+		return e
 	}
 
-	return t.PutUVarint(out, uv)
+	return nil
 }
 
 func (t ByteOrder) PutUVarintB(b []byte, v uint64) int {
