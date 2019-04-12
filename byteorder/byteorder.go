@@ -89,14 +89,14 @@ func (t ByteOrder) UVarint(b io.Reader) (uint64, error) {
 			return 0, e
 		}
 
-		if ch[0]&0x80 == 0 {
+		if ch[c]&0x80 == 0 {
 			break
 		}
 
 		c++
 	}
 
-	r, _, e := t.UVarintB(ch[:c])
+	r, _, e := t.UVarintB(ch[:c+1])
 	return r, e
 }
 
@@ -110,14 +110,14 @@ func (t ByteOrder) Varint(b io.Reader) (int64, error) {
 			return 0, e
 		}
 
-		if ch[0]&0x80 == 0 {
+		if ch[c]&0x80 == 0 {
 			break
 		}
 
 		c++
 	}
 
-	r, _, e := t.VarintB(ch[:c])
+	r, _, e := t.VarintB(ch[:c+1])
 	return r, e
 }
 
