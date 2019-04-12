@@ -85,7 +85,7 @@ func (t ByteOrder) UVarint(b io.Reader) (uint64, error) {
 	var ch [16]byte
 
 	for {
-		if _, e := b.Read(ch[c:]); e != nil {
+		if _, e := b.Read(ch[c : c+1]); e != nil {
 			return 0, e
 		}
 
@@ -106,7 +106,7 @@ func (t ByteOrder) Varint(b io.Reader) (int64, error) {
 	var ch [16]byte
 
 	for {
-		if _, e := b.Read(ch[c:]); e != nil {
+		if _, e := b.Read(ch[c : c+1]); e != nil {
 			return 0, e
 		}
 
