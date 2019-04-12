@@ -91,12 +91,12 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			return errors.Wrapf(e, "can not write string")
 		}
 	case Varint:
-		n := t.Endian.PutUVarint(t.buf, v.Uint())
+		n := t.Endian.PutUVarintB(t.buf, v.Uint())
 		if _, e := t.Wt.Write(t.buf[:n]); e != nil {
 			return errors.Wrapf(e, "can not write uvarint")
 		}
 	case UVarint:
-		n := t.Endian.PutVarint(t.buf, v.Int())
+		n := t.Endian.PutVarintB(t.buf, v.Int())
 		if _, e := t.Wt.Write(t.buf[:n]); e != nil {
 			return errors.Wrapf(e, "can not write varint")
 		}

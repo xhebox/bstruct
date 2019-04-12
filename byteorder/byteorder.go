@@ -282,7 +282,54 @@ func (t ByteOrder) PutFloat64(b []byte, v float64) {
 	t.PutUint64(b, math.Float64bits(v))
 }
 
-func (t ByteOrder) PutUVarint(b []byte, v uint64) int {
+func (t ByteOrder) PutUVarint(out io.Writer, v uint64) error {
+	ch := []byte{0}
+
+	if t {
+		for v >= 0x80 {
+			ch[0] = byte(v&0x7F) | 0x80
+			_, e := out.Write(ch)
+			if e != nil {
+				return e
+			}
+			v >>= 7
+		}
+		ch[0] = byte(v & 0x7F)
+		_, e := out.Write(ch)
+		if e != nil {
+			return e
+		}
+
+	} else {
+		ch[0] = byte(v & 0x7F)
+		_, e := out.Write(ch)
+		if e != nil {
+			return e
+		}
+
+		for v >= 0x80 {
+			v >>= 7
+			ch[0] = byte(v&0x7F) | 0x80
+			_, e := out.Write(ch)
+			if e != nil {
+				return e
+			}
+		}
+	}
+
+	return nil
+}
+
+func (t ByteOrder) PutVarint(out io.Writer, v int64) error {
+	uv := uint64(v) << 1
+	if v < 0 {
+		uv = ^uv
+	}
+
+	return t.PutUVarint(out, uv)
+}
+
+func (t ByteOrder) PutUVarintB(b []byte, v uint64) int {
 	if t {
 		c := 0
 
@@ -313,13 +360,13 @@ func (t ByteOrder) PutUVarint(b []byte, v uint64) int {
 }
 
 // zigzag encoding
-func (t ByteOrder) PutVarint(b []byte, v int64) int {
+func (t ByteOrder) PutVarintB(b []byte, v int64) int {
 	uv := uint64(v) << 1
 	if v < 0 {
 		uv = ^uv
 	}
 
-	return t.PutUVarint(b, uv)
+	return t.PutUVarintB(b, uv)
 }
 
 func (t ByteOrder) String() string {
