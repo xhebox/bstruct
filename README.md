@@ -9,7 +9,7 @@ bstruct uses multiple tags to describe and manipulate a field:
 
 ```go
 type custom struct {
-	Int16 int16 `endian:"big" skip:"w" prog:"view(root.Int16)"`
+	Int16 int16 `endian:"big" skip:"w" rdm:"func1"`
 }
 
 ct := custom{}
