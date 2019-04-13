@@ -1,6 +1,12 @@
 package bstruct
 
-import "github.com/xhebox/bstruct/tinyvm"
+import (
+	"reflect"
+	"strconv"
+	"strings"
+
+	"github.com/pkg/errors"
+)
 
 // implements field
 // normal field implementation
@@ -9,11 +15,52 @@ type Field struct {
 	name  string
 	flag  FieldFlag
 	align int
-	tpm   *tinyvm.Prog
-	rdm   *tinyvm.Prog
-	rdn   *tinyvm.Prog
-	wtm   *tinyvm.Prog
-	wtn   *tinyvm.Prog
+	prog  map[string]string
+}
+
+func newField(field reflect.StructField) (*Field, error) {
+	var flag FieldFlag
+	var align int
+
+	if len(field.Tag) != 0 {
+		if end := field.Tag.Get("endian"); len(end) != 0 {
+			switch end {
+			case "msb", "big":
+				flag |= FlagCusEnd
+				flag |= FlagBig
+			case "lsb", "little":
+				flag |= FlagCusEnd
+				flag &^= FlagBig
+			}
+		}
+
+		{
+			skip := field.Tag.Get("skip")
+			if strings.Contains(skip, "r") {
+				flag |= FlagSkipr
+			}
+			if strings.Contains(skip, "w") {
+				flag |= FlagSkipw
+			}
+		}
+
+		if alignstr := field.Tag.Get("align"); len(alignstr) != 0 {
+			align, e := strconv.Atoi(alignstr)
+			if e != nil {
+				return nil, e
+			}
+
+			if align > 16 {
+				return nil, errors.Errorf("align has an upper limit of 16 bytes")
+			}
+		}
+	}
+
+	return &Field{
+		flag:  flag,
+		align: align,
+		prog:  newProgs(field.Tag),
+	}, nil
 }
 
 // Field Name

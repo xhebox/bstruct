@@ -1,14 +1,12 @@
 package bstruct
 
 import (
-	"fmt"
 	"io"
 	"reflect"
 	"unsafe"
 
 	"github.com/pkg/errors"
 	"github.com/xhebox/bstruct/byteorder"
-	"github.com/xhebox/bstruct/tinyvm"
 )
 
 func str_bytes(s string) []byte {
@@ -25,9 +23,9 @@ func str_bytes(s string) []byte {
 type Encoder struct {
 	Wt     io.Writer
 	Endian byteorder.ByteOrder
-	VM     *tinyvm.VM
-	align  int
 	buf    []byte
+	root   interface{}
+	*runner
 }
 
 // just like New() *Type, always create encoder by this function
@@ -43,47 +41,22 @@ func NewEncoder() *Encoder {
 
 	enc := &Encoder{
 		Endian: HostEndian,
-		VM: &tinyvm.VM{
-			Endian: HostEndian,
+		runner: &runner{
+			progs: map[string]func(...interface{}) interface{}{},
 		},
 		buf: make([]byte, 16),
 	}
-	enc.VM.Init(256, 256)
-	enc.VM.Set("view", func(x ...interface{}) {
-		for _, v := range x {
-			fmt.Println(v)
-		}
-	})
-	enc.VM.Set("skip", func(x int64) {
-		wt, ok := enc.Wt.(io.Seeker)
-		if !ok {
-			panic("writer does not implement seeker")
-		}
-
-		_, e := wt.Seek(x, io.SeekCurrent)
-		if e != nil {
-			panic(e)
-		}
-	})
-	enc.VM.Set("fill", func(x int64) {
-		buf := make([]byte, x)
-		if _, e := enc.Wt.Write(buf); e != nil {
-			panic(e)
-		}
-	})
 
 	return enc
 }
 
 // pass the generated *Type, and a pointer to data
 func (t *Encoder) Encode(w *Type, data interface{}) error {
-	v := reflect.Indirect(reflect.ValueOf(data))
-	t.VM.Root = v
-	t.align = basicsize(w.kind)
-	return t.encode(w, v)
+	t.root = data
+	return t.encode(w, basicsize(w.kind), reflect.Indirect(reflect.ValueOf(data)))
 }
 
-func (t *Encoder) encode(w *Type, v reflect.Value) error {
+func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 	switch w.kind {
 	case Invalid:
 	case String:
@@ -103,133 +76,133 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 	case Bool:
 		t.Endian.PutBool(t.buf, v.Bool())
 
-		if t.align > 1 {
-			for k, e := 1, t.align; k < e; k++ {
+		if align > 1 {
+			for k, e := 1, align; k < e; k++ {
 				t.buf[k] = 0
 			}
 		}
 
-		if _, e := t.Wt.Write(t.buf[:t.align]); e != nil {
+		if _, e := t.Wt.Write(t.buf[:align]); e != nil {
 			return errors.Wrapf(e, "can not write bool")
 		}
 	case Int8:
 		t.Endian.PutInt8(t.buf, int8(v.Int()))
 
-		if t.align > 1 {
-			for k, e := 1, t.align; k < e; k++ {
+		if align > 1 {
+			for k, e := 1, align; k < e; k++ {
 				t.buf[k] = 0
 			}
 		}
 
-		if _, e := t.Wt.Write(t.buf[:t.align]); e != nil {
+		if _, e := t.Wt.Write(t.buf[:align]); e != nil {
 			return errors.Wrapf(e, "can not write int8")
 		}
 	case Int16:
 		t.Endian.PutInt16(t.buf, int16(v.Int()))
 
-		if t.align > 2 {
-			for k, e := 2, t.align; k < e; k++ {
+		if align > 2 {
+			for k, e := 2, align; k < e; k++ {
 				t.buf[k] = 0
 			}
 		}
 
-		if _, e := t.Wt.Write(t.buf[:t.align]); e != nil {
+		if _, e := t.Wt.Write(t.buf[:align]); e != nil {
 			return errors.Wrapf(e, "can not write int16")
 		}
 	case Int32:
 		t.Endian.PutInt32(t.buf, int32(v.Int()))
 
-		if t.align > 4 {
-			for k, e := 4, t.align; k < e; k++ {
+		if align > 4 {
+			for k, e := 4, align; k < e; k++ {
 				t.buf[k] = 0
 			}
 		}
 
-		if _, e := t.Wt.Write(t.buf[:t.align]); e != nil {
+		if _, e := t.Wt.Write(t.buf[:align]); e != nil {
 			return errors.Wrapf(e, "can not write int32")
 		}
 	case Int64:
 		t.Endian.PutInt64(t.buf, v.Int())
 
-		if t.align > 8 {
-			for k, e := 8, t.align; k < e; k++ {
+		if align > 8 {
+			for k, e := 8, align; k < e; k++ {
 				t.buf[k] = 0
 			}
 		}
 
-		if _, e := t.Wt.Write(t.buf[:t.align]); e != nil {
+		if _, e := t.Wt.Write(t.buf[:align]); e != nil {
 			return errors.Wrapf(e, "can not write int64")
 		}
 	case Uint8:
 		t.Endian.PutUint8(t.buf, uint8(v.Uint()))
 
-		if t.align > 1 {
-			for k, e := 1, t.align; k < e; k++ {
+		if align > 1 {
+			for k, e := 1, align; k < e; k++ {
 				t.buf[k] = 0
 			}
 		}
 
-		if _, e := t.Wt.Write(t.buf[:t.align]); e != nil {
+		if _, e := t.Wt.Write(t.buf[:align]); e != nil {
 			return errors.Wrapf(e, "can not write uint8")
 		}
 	case Uint16:
 		t.Endian.PutUint16(t.buf, uint16(v.Uint()))
 
-		if t.align > 2 {
-			for k, e := 2, t.align; k < e; k++ {
+		if align > 2 {
+			for k, e := 2, align; k < e; k++ {
 				t.buf[k] = 0
 			}
 		}
 
-		if _, e := t.Wt.Write(t.buf[:t.align]); e != nil {
+		if _, e := t.Wt.Write(t.buf[:align]); e != nil {
 			return errors.Wrapf(e, "can not write uint16")
 		}
 	case Uint32:
 		t.Endian.PutUint32(t.buf, uint32(v.Uint()))
 
-		if t.align > 4 {
-			for k, e := 4, t.align; k < e; k++ {
+		if align > 4 {
+			for k, e := 4, align; k < e; k++ {
 				t.buf[k] = 0
 			}
 		}
 
-		if _, e := t.Wt.Write(t.buf[:t.align]); e != nil {
+		if _, e := t.Wt.Write(t.buf[:align]); e != nil {
 			return errors.Wrapf(e, "can not write uint32")
 		}
 	case Uint64:
 		t.Endian.PutUint64(t.buf, v.Uint())
 
-		if t.align > 8 {
-			for k, e := 8, t.align; k < e; k++ {
+		if align > 8 {
+			for k, e := 8, align; k < e; k++ {
 				t.buf[k] = 0
 			}
 		}
 
-		if _, e := t.Wt.Write(t.buf[:t.align]); e != nil {
+		if _, e := t.Wt.Write(t.buf[:align]); e != nil {
 			return errors.Wrapf(e, "can not write uint64")
 		}
 	case Float32:
 		t.Endian.PutFloat32(t.buf, float32(v.Float()))
 
-		if t.align > 4 {
-			for k, e := 4, t.align; k < e; k++ {
+		if align > 4 {
+			for k, e := 4, align; k < e; k++ {
 				t.buf[k] = 0
 			}
 		}
 
-		if _, e := t.Wt.Write(t.buf[:t.align]); e != nil {
+		if _, e := t.Wt.Write(t.buf[:align]); e != nil {
 			return errors.Wrapf(e, "can not write float32")
 		}
 	case Float64:
 		t.Endian.PutFloat64(t.buf, v.Float())
 
-		if t.align > 8 {
-			for k, e := 8, t.align; k < e; k++ {
+		if align > 8 {
+			for k, e := 8, align; k < e; k++ {
 				t.buf[k] = 0
 			}
 		}
 
-		if _, e := t.Wt.Write(t.buf[:t.align]); e != nil {
+		if _, e := t.Wt.Write(t.buf[:align]); e != nil {
 			return errors.Wrapf(e, "can not write float64")
 		}
 	case Array, Slice:
@@ -340,36 +313,42 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 			}
 		} else {
 			for cnt := 0; cnt < l; cnt++ {
-				t.VM.K = int64(cnt)
-				if e := t.encode(elem, v.Index(cnt)); e != nil {
+				if e := t.encode(elem, align, v.Index(cnt)); e != nil {
 					return errors.Wrapf(e, "can not execute encode for elem[%d]", cnt)
 				}
 			}
 		}
 	case Struct:
-		oricur := t.VM.Current
-
-		t.VM.Current = v
 		for k, f := range w.struct_elem {
 			var fw = f.rtype
 			var fv = v.Field(k)
 
-			if f.tpm != nil {
-				if e := t.VM.Exec(f.tpm); e != nil {
-					return errors.Wrapf(e, "can not execute field tpm program")
+			if l := len(f.prog["type"]); l != 0 {
+				typ := ""
+
+				if f.prog["type"][0] == '\'' && f.prog["type"][l-1] == '\'' {
+					typ = f.prog["type"][1:l]
+				} else {
+					var ok bool
+					typ, ok = t.runner.exec(f.prog["type"], t.root).(string)
+					if !ok {
+						return errors.Errorf("can not execute type program")
+					}
 				}
 
-				rtype, ok := Types[t.VM.Ret().ToString()]
+				rtype, ok := Types[typ]
 				if !ok {
 					return errors.New("can not resolve type casting")
 				}
+
 				fw = rtype
 				f.align = basicsize(rtype.kind)
 			}
 
-			if f.wtm != nil {
-				if e := t.VM.Exec(f.wtm); e != nil {
-					return errors.Wrapf(e, "can not execute field pre program")
+			if len(f.prog["wtm"]) != 0 {
+				e, ok := t.runner.exec(f.prog["wtm"], fv.Interface(), t.root).(error)
+				if ok {
+					return errors.Errorf("can not execute wtm program: %+v", e)
 				}
 			}
 
@@ -385,9 +364,7 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 						}
 					}
 
-					t.align = f.align
-
-					if e := t.encode(fw, fv); e != nil {
+					if e := t.encode(fw, f.align, fv); e != nil {
 						return errors.Wrapf(e, "can not execute encode for field [%s]", f.Name())
 					}
 
@@ -395,14 +372,13 @@ func (t *Encoder) encode(w *Type, v reflect.Value) error {
 				}
 			}
 
-			if f.wtn != nil {
-				if e := t.VM.Exec(f.wtn); e != nil {
-					return errors.Wrapf(e, "can not execute field post program")
+			if len(f.prog["wtn"]) != 0 {
+				e, ok := t.runner.exec(f.prog["wtn"], fv.Interface(), t.root).(error)
+				if ok {
+					return errors.Errorf("can not execute wtn program: %+v", e)
 				}
 			}
 		}
-
-		t.VM.Current = oricur
 	default:
 		return errors.Errorf("unsupported type: %v\n", w.kind)
 	}

@@ -1,13 +1,11 @@
 package bstruct
 
-import "github.com/xhebox/bstruct/tinyvm"
-
 type Type struct {
 	kind Kind
 
 	slice_mode  SliceMode
 	slice_elem  *Type
-	slice_extra *tinyvm.Prog
+	slice_extra string
 
 	struct_num  int
 	struct_elem []*Field
@@ -47,10 +45,4 @@ func (this *Type) FieldByName(s string) *Field {
 	}
 
 	return nil
-}
-
-// know what you are doing before invoking
-func (this *Type) SetSlice(mode SliceMode, prog *tinyvm.Prog) {
-	this.slice_mode = mode
-	this.slice_extra = prog
 }

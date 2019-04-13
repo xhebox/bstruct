@@ -50,14 +50,16 @@ type big struct {
 std stands for binary/encoding, time of generate coder&Type is not counted:
 
 ```
-BenchmarkSmallDecode-4           3000000               414 ns/op
-BenchmarkStdSmallDecode-4        2000000               676 ns/op
-BenchmarkBigDecode-4             3000000               426 ns/op
-BenchmarkStdBigDecode-4           200000              6419 ns/op
-BenchmarkSmallEncode-4           5000000               381 ns/op
-BenchmarkStdSmallEncode-4        2000000               971 ns/op
-BenchmarkBigEncode-4             2000000               669 ns/op
-BenchmarkStdBigEncode-4           200000              7225 ns/op
+BenchmarkSmallDecode-4           3000000               588 ns/op
+BenchmarkStdSmallDecode-4        2000000               675 ns/op
+BenchmarkBigDecode-4             3000000               602 ns/op
+BenchmarkStdBigDecode-4           200000              6554 ns/op
+BenchmarkSmallEncode-4           2000000               643 ns/op
+BenchmarkStdSmallEncode-4        1000000              1002 ns/op
+BenchmarkBigEncode-4             2000000               936 ns/op
+BenchmarkStdBigEncode-4           200000              7227 ns/op
+BenchmarkApiDecode-4             1000000              1978 ns/op
+BenchmarkApiEncode-4             1000000              1255 ns/op
 ```
 
 you can get it by running `go test -bench .`
@@ -106,43 +108,18 @@ Int16 int16 `align:"64"`
 
 # prog flag
 
-the program, must compile, in hostEndian.
-
-it's like a super subset of C, only basic operator, assign, call, if statement and bool, int64, float64, string. there's no support for loop, variable/function definition, macro, etc...
-
-it's not that powerful, but does have a reasonable usage in such case.
-
-there're three builtin functions:
-
-- 'view(..)': print every argument using fmt.Println
-- 'read(int) []byte': will read n bytes from underlying reader and return an array. only available when read.
-- 'discard(int)': will skip n bytes from underlying reader or just use seek if reader implements io.Seeker. only available when read.
-- 'skip(int)': will seek n bytes on underlying writer, writer must implement seeker. only available when write.
-- 'fill(int)': will write n bytes to underlying writer. only available when write.
-- 'startcount()/stopcount() int64': like a stopwatch. stopcount return bytes readed. only available when read.
-
-and two variable:
-
-- 'root': point to the top struct.
-- 'current': point to the current struct.
-- 'k': tell the outer slice is reading at which count. if nested, the closest one.
+include `rdm, rdn, wtm, wtn, type` flags. use `coder.Register` first to register a function, assign flag a function name, it will be invoked. type is talked next section. callback function receive `(interface of the root)`(root is what you passed to coder). specifically, `xxm, xxn` will receive `(interface of current field, interface of root)`.
 
 ```go
-Int16 int16 `rdm:"read(4)"` // read pre
-Int16 int16 `rdn:"read(4)"` // read post
-Int16 int16 `wtm:"read(4)"` // write pre
-Int16 int16 `wtn:"read(4)"` // write post
-
-Int16 []struct {
-	Int16 `rdm:"root.Int16 == current.Int16, k"` // k will tell which n-th struct it is in
-}
+Int16 int16 `rdm:"func1"` // read pre
+Int16 int16 `rdn:"func2"` // read post
+Int16 int16 `wtm:"func3"` // write pre
+Int16 int16 `wtn:"func4"` // write post
 ```
-
-btw, stack and external variable map just have a size of 256. It's not to be modified by design.
 
 # type flag
 
-you are able to cast type. it's using `reflect.Set` magic, so it's your own duty to avoid `panic`, e.g. type must be of same kind. you can register your own Type by `RegisterType(...)`.
+you are able to cast type. it's using `reflect.Set` magic, so it's your own duty to avoid `panic`, e.g. type must be of same kind. you can register your own Type by `RegisterType(...)`. specifically, `'some type'` is a syntax sugar to return an constant string.
 
 ```go
 Int16 int16 `type:"'int8'"` // it's OK
@@ -184,11 +161,11 @@ there're two global variables can be tuned:
 
 ```go
 Int16 []int16
-Int16 []int16 `length:"root.Int8"`
-Int16 []int16 `size:"root.Int8"` // fallbacks to modelen
+Int16 []int16 `length:"func1"`
+Int16 []int16 `size:"func2"` // fallbacks to modelen
 Int16 []struct{
 	A [4]byte
-} `size:"root.Int8"` // but not this one, so more space is taken
+} `size:"func3"` // but not this one, so more space is taken
 ```
 
 # string

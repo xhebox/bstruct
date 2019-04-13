@@ -34,17 +34,17 @@ type basicCover struct {
 	K struct {
 		Int64 int64 `skip:"r"`
 	}
-	Array1 [5]byte `rdn:"root.Byte = 4; read(4); if (true) root.Uint16 = 8; if (root.Byte) root.Uint32 = 16;"`
+	Array1 [5]byte `rdn:"Array1_test"`
 
 	An struct {
 		Drray [4]byte
-		Array []byte   `length:"current.Drray[0]/3"`
-		Brray []uint16 `size:"4+2"`
+		Array []byte   `length:"Array_length"`
+		Brray []uint16 `size:"An_size"`
 	}
 
 	M []struct {
 		Int64 int64
-	} `length:"4"`
+	} `length:"M_length"`
 
 	Float32 float32
 	Float64 float64
@@ -147,9 +147,79 @@ func BenchmarkStdBigEncode(b *testing.B) {
 	}
 }
 
+func BenchmarkApiDecode(b *testing.B) {
+	var cover = &basicCover{}
+	var ct = MustNew(cover)
+
+	dec.Register("An_size", func(...interface{}) interface{} {
+		return 4 + 2
+	})
+
+	dec.Register("Array_length", func(s ...interface{}) interface{} {
+		r := s[0].(*basicCover)
+
+		return int(r.An.Drray[0] / 3)
+	})
+
+	dec.Register("M_length", func(...interface{}) interface{} {
+		return 4
+	})
+
+	dec.Register("Array1_test", func(s ...interface{}) interface{} {
+		r := s[1].(*basicCover)
+
+		r.Byte = 4
+		r.Uint16 = 8
+		r.Uint32 = 16
+		return nil
+	})
+
+	for i := 0; i < b.N; i++ {
+		dec.Rd = bytes.NewReader(testbytes)
+		if e := dec.Decode(ct, cover); e != nil {
+			b.Fatalf("%+v\n", e)
+		}
+	}
+}
+
+func BenchmarkApiEncode(b *testing.B) {
+	var cover = &basicCover{}
+	var ct = MustNew(cover)
+
+	for i := 0; i < b.N; i++ {
+		enc.Wt = &bytes.Buffer{}
+		if e := enc.Encode(ct, cover); e != nil {
+			b.Fatalf("%+v\n", e)
+		}
+	}
+}
+
 func TestApi(t *testing.T) {
 	var cover = &basicCover{}
 	var ct = MustNew(cover)
+
+	dec.Register("An_size", func(...interface{}) interface{} {
+		return 4 + 2
+	})
+
+	dec.Register("Array_length", func(s ...interface{}) interface{} {
+		r := s[0].(*basicCover)
+
+		return int(r.An.Drray[0] / 3)
+	})
+
+	dec.Register("M_length", func(...interface{}) interface{} {
+		return 4
+	})
+
+	dec.Register("Array1_test", func(s ...interface{}) interface{} {
+		r := s[1].(*basicCover)
+
+		r.Byte = 4
+		r.Uint16 = 8
+		r.Uint32 = 16
+		return nil
+	})
 
 	dec.Rd = bytes.NewReader(testbytes)
 	if e := dec.Decode(ct, cover); e != nil {

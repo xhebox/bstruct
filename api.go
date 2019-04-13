@@ -2,12 +2,9 @@ package bstruct
 
 import (
 	"reflect"
-	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/xhebox/bstruct/byteorder"
-	"github.com/xhebox/bstruct/tinyvm"
 )
 
 // just like New(), new type or panic
@@ -30,8 +27,6 @@ func MustNew(data interface{}) *Type {
 //
 // most importantly, always generate Type by this function instead of new(Type) or Type{}
 func New(data interface{}) (*Type, error) {
-	compiler := tinyvm.NewCompiler()
-
 	{
 		a := 0xABCD
 		if uint8(a) == 0xAB {
@@ -39,38 +34,36 @@ func New(data interface{}) (*Type, error) {
 		} else {
 			HostEndian = byteorder.LittleEndian
 		}
-		compiler.Endian = HostEndian
 	}
 
 	v := reflect.ValueOf(data).Type()
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-	compiler.R = v
 
 	switch v.Kind() {
 	case reflect.Bool, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.Array, reflect.Slice, reflect.String, reflect.Struct:
-		return genType(compiler, compiler.R)
+		return genType(v)
 	default:
 		return nil, errors.Errorf("unsupported type %v", v.Kind())
 	}
 }
 
-func genType(compiler *tinyvm.Compiler, cur reflect.Type) (r *Type, e error) {
-	switch kind := cur.Kind(); kind {
+func genType(typ reflect.Type) (r *Type, e error) {
+	switch kind := typ.Kind(); kind {
 	case reflect.Bool, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String:
 		r = &Type{kind: Kind(kind)}
 	case reflect.Slice, reflect.Array:
-		k := cur.Elem()
+		k := typ.Elem()
 
 		switch k.Kind() {
 		case reflect.Slice, reflect.String:
-			e = errors.New("slice/string is not allowed to be elem of array/slice")
+			e = errors.New("slice/string is not allowed to be elem of array/slice, if it's not a field of struct")
 			return
 		}
 
 		var elem *Type
-		elem, e = genType(compiler, k)
+		elem, e = genType(k)
 		if e != nil {
 			errors.WithStack(e)
 			return
@@ -88,26 +81,26 @@ func genType(compiler *tinyvm.Compiler, cur reflect.Type) (r *Type, e error) {
 	case reflect.Struct:
 		r = &Type{
 			kind:       Kind(kind),
-			struct_num: cur.NumField(),
+			struct_num: typ.NumField(),
 		}
 
-		for i, j := 0, cur.NumField(); i < j; i++ {
+		for i, j := 0, typ.NumField(); i < j; i++ {
 			var t *Field
 
-			sfield := cur.Field(i)
+			subfield := typ.Field(i)
 
 			// unexported
-			if len(sfield.PkgPath) != 0 {
+			if len(subfield.PkgPath) != 0 {
 				t = &Field{rtype: &Type{kind: Invalid}}
 			} else {
-				t, e = genField(compiler, sfield, cur)
+				t, e = genField(subfield, typ)
 				if e != nil {
 					e = errors.WithStack(e)
 					return
 				}
 			}
 
-			t.name = sfield.Name
+			t.name = subfield.Name
 			r.struct_elem = append(r.struct_elem, t)
 		}
 	default:
@@ -118,188 +111,75 @@ func genType(compiler *tinyvm.Compiler, cur reflect.Type) (r *Type, e error) {
 	return r, nil
 }
 
-func genField(compiler *tinyvm.Compiler, field reflect.StructField, prt reflect.Type) (r *Field, e error) {
-	var flag FieldFlag
-	var align int
-	var tpm, rdm, rdn, wtm, wtn *tinyvm.Prog
-	var cur = field.Type
-	var tag = field.Tag
+func genField(field reflect.StructField, prt reflect.Type) (r *Field, e error) {
+	r, e = newField(field)
 
-	compiler.C = prt
-
-	if len(tag) != 0 {
-		if end := tag.Get("endian"); len(end) != 0 {
-			switch end {
-			case "msb", "big":
-				flag |= FlagCusEnd
-				flag |= FlagBig
-			case "lsb", "little":
-				flag |= FlagCusEnd
-				flag &^= FlagBig
-			}
-		}
-
-		{
-			skip := tag.Get("skip")
-			if strings.Contains(skip, "r") {
-				flag |= FlagSkipr
-			}
-			if strings.Contains(skip, "w") {
-				flag |= FlagSkipw
-			}
-		}
-
-		if alignstr := tag.Get("align"); len(alignstr) != 0 {
-			align, e = strconv.Atoi(alignstr)
-			if e != nil {
-				return
-			}
-
-			if align > 16 {
-				e = errors.Errorf("align has an upper limit of 16")
-				return
-			}
-		}
-
-		if rdmstr := tag.Get("rdm"); len(rdmstr) != 0 {
-			rdm = compiler.MustCompile(rdmstr)
-		}
-
-		if rdnstr := tag.Get("rdn"); len(rdnstr) != 0 {
-			rdn = compiler.MustCompile(rdnstr)
-		}
-
-		if wtmstr := tag.Get("wtm"); len(wtmstr) != 0 {
-			wtm = compiler.MustCompile(wtmstr)
-		}
-
-		if wtnstr := tag.Get("wtn"); len(wtnstr) != 0 {
-			wtn = compiler.MustCompile(wtnstr)
-		}
-
-		if tpmstr := tag.Get("type"); len(tpmstr) != 0 {
-			tpm = compiler.MustCompile(tpmstr)
-		}
-	}
-
-	switch kind := cur.Kind(); kind {
+	switch kind := field.Type.Kind(); kind {
 	case reflect.Bool, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64:
 		sz := basicsize(Kind(kind))
-		if align < sz {
-			align = sz
+		if r.align < sz {
+			r.align = sz
 		}
 
-		r = &Field{
-			rtype: &Type{kind: Kind(kind)},
-			flag:  flag,
-			align: align,
-			tpm:   tpm,
-			rdm:   rdm,
-			rdn:   rdn,
-			wtm:   wtm,
-			wtn:   wtn,
-		}
+		r.rtype = &Type{kind: Kind(kind)}
 	case reflect.Interface, reflect.Uint, reflect.Int:
-		if tpm == nil {
+		r.rtype = &Type{kind: Invalid}
+
+		if len(r.prog["type"]) == 0 {
 			e = errors.New("interface{}/int/uint field must have a type program")
 			return
 		}
-
-		r = &Field{
-			rtype: &Type{kind: Invalid},
-			flag:  flag,
-			align: align,
-			tpm:   tpm,
-			rdm:   rdm,
-			rdn:   rdn,
-			wtm:   wtm,
-			wtn:   wtn,
-		}
 	case reflect.String:
-		r = &Field{
-			rtype: &Type{kind: String},
-			flag:  flag,
-			align: align,
-			tpm:   tpm,
-			rdm:   rdm,
-			rdn:   rdn,
-			wtm:   wtm,
-			wtn:   wtn,
-		}
+		r.rtype = &Type{kind: String}
 	case reflect.Slice, reflect.Array:
-		k := cur.Elem()
+		k := field.Type.Elem()
 		kkind := k.Kind()
 
 		sz := basicsize(Kind(kkind))
-		if align < sz {
-			align = sz
-		}
-
-		switch kkind {
-		case reflect.Slice, reflect.String:
-			e = errors.New("slice/string is not allowed to be elem of array/slice")
-			return
+		if r.align < sz {
+			r.align = sz
 		}
 
 		var elem *Type
-		elem, e = genType(compiler, k)
+		elem, e = genType(k)
 		if e != nil {
 			errors.WithStack(e)
 			return
 		}
-		r = &Field{
-			rtype: &Type{
-				kind:       Kind(kind),
-				slice_mode: SliceModeEOF,
-				slice_elem: elem,
-			},
-			flag:  flag,
-			align: align,
-			tpm:   tpm,
-			rdm:   rdm,
-			rdn:   rdn,
-			wtm:   wtm,
-			wtn:   wtn,
+
+		r.rtype = &Type{
+			kind:       Kind(kind),
+			slice_mode: SliceModeEOF,
+			slice_elem: elem,
 		}
 
 		if kind == reflect.Array {
 			r.rtype.slice_mode = SliceModeLen
 		}
 
-		if length := tag.Get("length"); len(length) != 0 {
+		if length := field.Tag.Get("length"); len(length) != 0 {
 			r.rtype.slice_mode = SliceModeLen
-			r.rtype.slice_extra = compiler.MustCompile(length)
-		} else if size := tag.Get("size"); len(size) != 0 {
+			r.rtype.slice_extra = length
+		} else if size := field.Tag.Get("size"); len(size) != 0 {
 			r.rtype.slice_mode = SliceModeSize
-			r.rtype.slice_extra = compiler.MustCompile(size)
+			r.rtype.slice_extra = size
 		}
 	case reflect.Struct:
-		r = &Field{
-			rtype: &Type{
-				kind:       Kind(kind),
-				struct_num: cur.NumField(),
-			},
-			flag:  flag,
-			align: align,
-			tpm:   tpm,
-			rdm:   rdm,
-			rdn:   rdn,
-			wtm:   wtm,
-			wtn:   wtn,
+		r.rtype = &Type{
+			kind:       Kind(kind),
+			struct_num: field.Type.NumField(),
 		}
 
-		for i, j := 0, cur.NumField(); i < j; i++ {
+		for i, j := 0, field.Type.NumField(); i < j; i++ {
 			var t *Field
 
-			sfield := cur.Field(i)
+			sfield := field.Type.Field(i)
+
 			// unexported
-			if len(sfield.PkgPath) != 0 ||
-				// skiprw, and no prog, it's useless
-				((flag&FlagSkip == FlagSkipr|FlagSkipw) &&
-					(rdm == nil && rdn == nil && wtm == nil && wtn == nil)) {
+			if len(sfield.PkgPath) != 0 || (r.flag&FlagSkip == FlagSkipr|FlagSkipw) {
 				t = &Field{rtype: &Type{kind: Invalid}}
 			} else {
-				t, e = genField(compiler, sfield, cur)
+				t, e = genField(sfield, field.Type)
 				if e != nil {
 					e = errors.WithStack(e)
 					return
