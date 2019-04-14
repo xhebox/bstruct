@@ -332,7 +332,7 @@ func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 					typ = f.prog["type"][1:l]
 				} else {
 					var ok bool
-					typ, ok = t.Runner.exec(f.prog["type"], vi, t.root).(string)
+					typ, ok = t.Runner.exec(f.prog["type"], t.root, vi).(string)
 					if !ok {
 						return errors.Errorf("can not execute type program")
 					}
@@ -348,7 +348,7 @@ func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 			}
 
 			if len(f.prog["wtm"]) != 0 {
-				e, ok := t.Runner.exec(f.prog["wtm"], vi, t.root).(error)
+				e, ok := t.Runner.exec(f.prog["wtm"], t.root, vi).(error)
 				if ok {
 					return errors.Errorf("can not execute wtm program: %+v", e)
 				}
@@ -375,7 +375,7 @@ func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 			}
 
 			if len(f.prog["wtn"]) != 0 {
-				e, ok := t.Runner.exec(f.prog["wtn"], vi, t.root).(error)
+				e, ok := t.Runner.exec(f.prog["wtn"], t.root, vi).(error)
 				if ok {
 					return errors.Errorf("can not execute wtn program: %+v", e)
 				}

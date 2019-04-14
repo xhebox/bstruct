@@ -84,10 +84,10 @@ func NewDecoder() *Decoder {
 // pass the generated *Type, and a pointer to data
 func (t *Decoder) Decode(w *Type, data interface{}) error {
 	t.root = data
-	return t.decode(w, basicsize(w.kind), reflect.Indirect(reflect.ValueOf(data)))
+	return t.decode(w, basicsize(w.kind), reflect.Indirect(reflect.ValueOf(data)), nil)
 }
 
-func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
+func (t *Decoder) decode(w *Type, align int, v reflect.Value, pvi interface{}) error {
 	switch w.kind {
 	case Invalid:
 	case String:
@@ -178,7 +178,13 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 		if len(w.slice_extra) != 0 {
 			switch w.slice_mode {
 			case SliceModeLen:
-				l, ok := t.Runner.exec(w.slice_extra, t.root).(int)
+				var l int
+				var ok bool
+				if pvi != nil {
+					l, ok = t.Runner.exec(w.slice_extra, t.root, pvi).(int)
+				} else {
+					l, ok = t.Runner.exec(w.slice_extra, t.root).(int)
+				}
 				if !ok {
 					return errors.Errorf("can not execute length program")
 				}
@@ -191,7 +197,13 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 					return errors.Errorf("length program returned a negative %d", l)
 				}
 			case SliceModeSize:
-				l, ok := t.Runner.exec(w.slice_extra, t.root).(int)
+				var l int
+				var ok bool
+				if pvi != nil {
+					l, ok = t.Runner.exec(w.slice_extra, t.root, pvi).(int)
+				} else {
+					l, ok = t.Runner.exec(w.slice_extra, t.root).(int)
+				}
 				if !ok {
 					return errors.Errorf("can not execute size program")
 				}
@@ -328,7 +340,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 				}
 			} else {
 				for cnt := 0; cnt < l; cnt++ {
-					if e := t.decode(elem, align, v.Index(cnt)); e != nil {
+					if e := t.decode(elem, align, v.Index(cnt), nil); e != nil {
 						return errors.Wrapf(e, "can not execute decode for elem[%d]", cnt)
 					}
 				}
@@ -341,7 +353,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 			cnt := 0
 			for nm := v.Len(); cnt < max; {
 				for ; cnt < nm; cnt++ {
-					if e := t.decode(elem, align, v.Index(cnt)); e != nil {
+					if e := t.decode(elem, align, v.Index(cnt), nil); e != nil {
 						if strings.HasSuffix(e.Error(), "EOF") {
 							v.SetLen(cnt)
 							t.Rd = ord
@@ -377,7 +389,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 					typ = f.prog["type"][1:l]
 				} else {
 					var ok bool
-					typ, ok = t.Runner.exec(f.prog["type"], vi, t.root).(string)
+					typ, ok = t.Runner.exec(f.prog["type"], t.root, vi).(string)
 					if !ok {
 						return errors.Errorf("can not execute type program")
 					}
@@ -393,7 +405,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 			}
 
 			if len(f.prog["rdm"]) != 0 {
-				e, ok := t.Runner.exec(f.prog["rdm"], vi, t.root).(error)
+				e, ok := t.Runner.exec(f.prog["rdm"], t.root, vi).(error)
 				if ok {
 					return errors.Errorf("can not execute rdm program: %+v", e)
 				}
@@ -411,7 +423,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 						}
 					}
 
-					if e := t.decode(fw, f.align, fv); e != nil {
+					if e := t.decode(fw, f.align, fv, vi); e != nil {
 						return errors.Wrapf(e, "can not execute decode for field [%s]", f.Name())
 					}
 
@@ -420,7 +432,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 			}
 
 			if len(f.prog["rdn"]) != 0 {
-				e, ok := t.Runner.exec(f.prog["rdn"], vi, t.root).(error)
+				e, ok := t.Runner.exec(f.prog["rdn"], t.root, vi).(error)
 				if ok {
 					return errors.Errorf("can not execute rdn program: %+v", e)
 				}

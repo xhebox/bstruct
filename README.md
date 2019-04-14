@@ -108,7 +108,7 @@ Int16 int16 `align:"64"`
 
 # prog flag
 
-include `rdm, rdn, wtm, wtn, type` flags. use `coder.Register` first to register a function, assign flag a function name, it will be invoked. type is talked next section. all function will receive `(interface of current struct, interface of root)`, but flags for slice only receive `(interface of root)`.
+include `rdm, rdn, wtm, wtn, type` flags. use `coder.Register` first to register a function, assign flag a function name, it will be invoked. type is talked next section. all function will receive `(interface of root, interface of struct where the current field lies in if possible)`.
 
 ```go
 Int16 int16 `rdm:"func1"` // read pre

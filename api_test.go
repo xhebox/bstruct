@@ -213,7 +213,7 @@ func TestApi(t *testing.T) {
 	})
 
 	dec.Runner.Register("Array1_test", func(s ...interface{}) interface{} {
-		r := s[1].(*basicCover)
+		r := s[0].(*basicCover)
 
 		r.Byte = 4
 		r.Uint16 = 8
