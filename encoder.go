@@ -319,6 +319,8 @@ func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 			}
 		}
 	case Struct:
+		vi := v.Interface()
+
 		for k, f := range w.struct_elem {
 			var fw = f.rtype
 			var fv = v.Field(k)
@@ -330,7 +332,7 @@ func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 					typ = f.prog["type"][1:l]
 				} else {
 					var ok bool
-					typ, ok = t.Runner.exec(f.prog["type"], t.root).(string)
+					typ, ok = t.Runner.exec(f.prog["type"], vi, t.root).(string)
 					if !ok {
 						return errors.Errorf("can not execute type program")
 					}
@@ -346,7 +348,7 @@ func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 			}
 
 			if len(f.prog["wtm"]) != 0 {
-				e, ok := t.Runner.exec(f.prog["wtm"], fv.Interface(), t.root).(error)
+				e, ok := t.Runner.exec(f.prog["wtm"], vi, t.root).(error)
 				if ok {
 					return errors.Errorf("can not execute wtm program: %+v", e)
 				}
@@ -373,7 +375,7 @@ func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 			}
 
 			if len(f.prog["wtn"]) != 0 {
-				e, ok := t.Runner.exec(f.prog["wtn"], fv.Interface(), t.root).(error)
+				e, ok := t.Runner.exec(f.prog["wtn"], vi, t.root).(error)
 				if ok {
 					return errors.Errorf("can not execute wtn program: %+v", e)
 				}

@@ -108,7 +108,7 @@ Int16 int16 `align:"64"`
 
 # prog flag
 
-include `rdm, rdn, wtm, wtn, type` flags. use `coder.Register` first to register a function, assign flag a function name, it will be invoked. type is talked next section. callback function receive `(interface of the root)`(root is what you passed to coder). specifically, `xxm, xxn` will receive `(interface of current field, interface of root)`.
+include `rdm, rdn, wtm, wtn, type` flags. use `coder.Register` first to register a function, assign flag a function name, it will be invoked. type is talked next section. all function will receive `(interface of current struct, interface of root)`, but flags for slice only receive `(interface of root)`.
 
 ```go
 Int16 int16 `rdm:"func1"` // read pre
@@ -175,6 +175,5 @@ as string is immutable, it does not implement slice mode. string is seen as a se
 # other thins
 
 - endian: defaults to host endianess.
-- elem of slice: because struct tag is only applied to field, so elem of slice is not seen as a field. tag therefore, is applied to slice itself rather than elem.
 - nested slice/string: tag is applied to slice itself, so it's impossible to specify tag for the second dimesion slice. so nested slice/string is not allowed. but you can wrap it as a struct, then it's ok.
 - since bstruct is using read frequently, i'd recommend bufio if it's a stream. otherwise bytes.Reader is enough.
