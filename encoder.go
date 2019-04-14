@@ -23,9 +23,9 @@ func str_bytes(s string) []byte {
 type Encoder struct {
 	Wt     io.Writer
 	Endian byteorder.ByteOrder
+	Runner *runner
 	buf    []byte
 	root   interface{}
-	*runner
 }
 
 // just like New() *Type, always create encoder by this function
@@ -41,7 +41,7 @@ func NewEncoder() *Encoder {
 
 	enc := &Encoder{
 		Endian: HostEndian,
-		runner: &runner{
+		Runner: &runner{
 			progs: map[string]func(...interface{}) interface{}{},
 		},
 		buf: make([]byte, 16),
@@ -330,7 +330,7 @@ func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 					typ = f.prog["type"][1:l]
 				} else {
 					var ok bool
-					typ, ok = t.runner.exec(f.prog["type"], t.root).(string)
+					typ, ok = t.Runner.exec(f.prog["type"], t.root).(string)
 					if !ok {
 						return errors.Errorf("can not execute type program")
 					}
@@ -346,7 +346,7 @@ func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 			}
 
 			if len(f.prog["wtm"]) != 0 {
-				e, ok := t.runner.exec(f.prog["wtm"], fv.Interface(), t.root).(error)
+				e, ok := t.Runner.exec(f.prog["wtm"], fv.Interface(), t.root).(error)
 				if ok {
 					return errors.Errorf("can not execute wtm program: %+v", e)
 				}
@@ -373,7 +373,7 @@ func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 			}
 
 			if len(f.prog["wtn"]) != 0 {
-				e, ok := t.runner.exec(f.prog["wtn"], fv.Interface(), t.root).(error)
+				e, ok := t.Runner.exec(f.prog["wtn"], fv.Interface(), t.root).(error)
 				if ok {
 					return errors.Errorf("can not execute wtn program: %+v", e)
 				}

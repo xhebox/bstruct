@@ -54,9 +54,9 @@ func basicsize(k Kind) int {
 type Decoder struct {
 	Rd     io.Reader
 	Endian byteorder.ByteOrder
+	Runner *runner
 	buf    []byte
 	root   interface{}
-	*runner
 }
 
 // just like New() *Type, always create decoder by this function
@@ -72,7 +72,7 @@ func NewDecoder() *Decoder {
 
 	dec := &Decoder{
 		Endian: HostEndian,
-		runner: &runner{
+		Runner: &runner{
 			progs: map[string]func(...interface{}) interface{}{},
 		},
 		buf: make([]byte, 16),
@@ -178,7 +178,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 		if len(w.slice_extra) != 0 {
 			switch w.slice_mode {
 			case SliceModeLen:
-				l, ok := t.runner.exec(w.slice_extra, t.root).(int)
+				l, ok := t.Runner.exec(w.slice_extra, t.root).(int)
 				if !ok {
 					return errors.Errorf("can not execute length program")
 				}
@@ -191,7 +191,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 					return errors.Errorf("length program returned a negative %d", l)
 				}
 			case SliceModeSize:
-				l, ok := t.runner.exec(w.slice_extra, t.root).(int)
+				l, ok := t.Runner.exec(w.slice_extra, t.root).(int)
 				if !ok {
 					return errors.Errorf("can not execute size program")
 				}
@@ -375,7 +375,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 					typ = f.prog["type"][1:l]
 				} else {
 					var ok bool
-					typ, ok = t.runner.exec(f.prog["type"], t.root).(string)
+					typ, ok = t.Runner.exec(f.prog["type"], t.root).(string)
 					if !ok {
 						return errors.Errorf("can not execute type program")
 					}
@@ -391,7 +391,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 			}
 
 			if len(f.prog["rdm"]) != 0 {
-				e, ok := t.runner.exec(f.prog["rdm"], fv.Interface(), t.root).(error)
+				e, ok := t.Runner.exec(f.prog["rdm"], fv.Interface(), t.root).(error)
 				if ok {
 					return errors.Errorf("can not execute rdm program: %+v", e)
 				}
@@ -418,7 +418,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value) error {
 			}
 
 			if len(f.prog["rdn"]) != 0 {
-				e, ok := t.runner.exec(f.prog["rdn"], fv.Interface(), t.root).(error)
+				e, ok := t.Runner.exec(f.prog["rdn"], fv.Interface(), t.root).(error)
 				if ok {
 					return errors.Errorf("can not execute rdn program: %+v", e)
 				}

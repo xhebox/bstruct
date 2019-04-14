@@ -151,21 +151,21 @@ func BenchmarkApiDecode(b *testing.B) {
 	var cover = &basicCover{}
 	var ct = MustNew(cover)
 
-	dec.Register("An_size", func(...interface{}) interface{} {
+	dec.Runner.Register("An_size", func(...interface{}) interface{} {
 		return 4 + 2
 	})
 
-	dec.Register("Array_length", func(s ...interface{}) interface{} {
+	dec.Runner.Register("Array_length", func(s ...interface{}) interface{} {
 		r := s[0].(*basicCover)
 
 		return int(r.An.Drray[0] / 3)
 	})
 
-	dec.Register("M_length", func(...interface{}) interface{} {
+	dec.Runner.Register("M_length", func(...interface{}) interface{} {
 		return 4
 	})
 
-	dec.Register("Array1_test", func(s ...interface{}) interface{} {
+	dec.Runner.Register("Array1_test", func(s ...interface{}) interface{} {
 		r := s[1].(*basicCover)
 
 		r.Byte = 4
@@ -198,21 +198,21 @@ func TestApi(t *testing.T) {
 	var cover = &basicCover{}
 	var ct = MustNew(cover)
 
-	dec.Register("An_size", func(...interface{}) interface{} {
+	dec.Runner.Register("An_size", func(...interface{}) interface{} {
 		return 4 + 2
 	})
 
-	dec.Register("Array_length", func(s ...interface{}) interface{} {
+	dec.Runner.Register("Array_length", func(s ...interface{}) interface{} {
 		r := s[0].(*basicCover)
 
 		return int(r.An.Drray[0] / 3)
 	})
 
-	dec.Register("M_length", func(...interface{}) interface{} {
+	dec.Runner.Register("M_length", func(...interface{}) interface{} {
 		return 4
 	})
 
-	dec.Register("Array1_test", func(s ...interface{}) interface{} {
+	dec.Runner.Register("Array1_test", func(s ...interface{}) interface{} {
 		r := s[1].(*basicCover)
 
 		r.Byte = 4
@@ -227,6 +227,7 @@ func TestApi(t *testing.T) {
 	}
 
 	enc.Wt = &bytes.Buffer{}
+	enc.Runner.Copy(dec.Runner)
 	if e := enc.Encode(ct, cover); e != nil {
 		t.Fatalf("%+v\n", e)
 	}

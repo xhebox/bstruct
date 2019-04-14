@@ -24,6 +24,12 @@ func (c *runner) Register(name string, f func(...interface{}) interface{}) {
 	c.progs[name] = f
 }
 
+func (c *runner) Copy(t *runner) {
+	for k, v := range t.progs {
+		c.progs[k] = v
+	}
+}
+
 func (c *runner) exec(name string, s ...interface{}) interface{} {
 	f, ok := c.progs[name]
 	if !ok {

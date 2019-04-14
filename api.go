@@ -133,9 +133,16 @@ func genField(field reflect.StructField, prt reflect.Type) (r *Field, e error) {
 		r.rtype = &Type{kind: String}
 	case reflect.Slice, reflect.Array:
 		k := field.Type.Elem()
-		kkind := k.Kind()
 
-		sz := basicsize(Kind(kkind))
+		k_kind := k.Kind()
+
+		switch k_kind {
+		case reflect.Slice, reflect.String:
+			e = errors.New("slice/string is not allowed to be elem of array/slice, if it's not a field of struct")
+			return
+		}
+
+		sz := basicsize(Kind(k_kind))
 		if r.align < sz {
 			r.align = sz
 		}
