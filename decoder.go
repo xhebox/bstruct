@@ -92,14 +92,14 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value, pvi interface{}) e
 	case Invalid:
 	case String:
 	case UVarint:
-		n, e := t.Endian.UVarint(t.Rd)
+		n, e := t.Endian.FUVarint(t.Rd)
 		if e != nil {
 			return errors.Wrapf(e, "can not read uvarint")
 		}
 
 		v.SetUint(n)
 	case Varint:
-		n, e := t.Endian.Varint(t.Rd)
+		n, e := t.Endian.FVarint(t.Rd)
 		if e != nil {
 			return errors.Wrapf(e, "can not read varint")
 		}
