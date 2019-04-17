@@ -160,16 +160,16 @@ func (t ByteOrder) FFloat64(rd io.Reader) (float64, error) {
 // lsb means decode the first group as the right most 7 bits
 //
 // msb means decode the first group as the left most 7 bits
-func (t ByteOrder) UVarint(ch []byte) (uint64, int, error) {
+func (t ByteOrder) UVarint(b []byte) (uint64, int, error) {
 	r := uint64(0)
 
 	c := 0
 
-	for ; c < UVMAXLEN && ch[c]&0x80 == 0; c++ {
+	for ; c < UVMAXLEN && b[c]&0x80 == 0; c++ {
 		if t {
-			r |= uint64(ch[c]&0x7F) << uint(c*7)
+			r |= uint64(b[c]&0x7F) << uint(c*7)
 		} else {
-			r = r<<7 | uint64(ch[c]&0x7F)
+			r = r<<7 | uint64(b[c]&0x7F)
 		}
 	}
 
@@ -205,11 +205,11 @@ func (t ByteOrder) Varint(b []byte) (int64, int, error) {
 }
 
 // zigzag encoding
-func (t ByteOrder) FVarint(b io.Reader) (int64, error) {
+func (t ByteOrder) FVarint(rd io.Reader) (int64, error) {
 	var ch [UVMAXLEN]byte
 
 	for c := 0; c < UVMAXLEN && ch[c]&0x80 != 0; c++ {
-		if _, e := b.Read(ch[c : c+1]); e != nil {
+		if _, e := rd.Read(ch[c : c+1]); e != nil {
 			return 0, e
 		}
 	}
@@ -430,12 +430,12 @@ func (t ByteOrder) PutVarint(b []byte, v int64) int {
 	return t.PutUVarint(b, uv)
 }
 
-func (t ByteOrder) FputVarint(out io.Writer, v int64) error {
+func (t ByteOrder) FputVarint(wt io.Writer, v int64) error {
 	var ch [16]byte
 
 	l := t.PutVarint(ch[:], v)
 
-	_, e := out.Write(ch[:l])
+	_, e := wt.Write(ch[:l])
 	if e != nil {
 		return e
 	}
