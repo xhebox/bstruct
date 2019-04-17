@@ -127,7 +127,7 @@ Int16 int16 `type:"'uint8'"` // will panic
 Int16 interface{} `type:"'int16'"` // it's OK
 ```
 
-interface must have a type program.
+interface must have a type program. a custom type with `Invalid` kind that implements `CustomRW` will execute their own read/write function.
 
 # varint
 

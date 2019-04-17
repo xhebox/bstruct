@@ -90,6 +90,12 @@ func (t *Decoder) Decode(w *Type, data interface{}) error {
 func (t *Decoder) decode(w *Type, align int, v reflect.Value, pvi interface{}) error {
 	switch w.kind {
 	case Invalid:
+		if v.CanInterface() {
+			n, ok := v.Interface().(CustomRW)
+			if ok {
+				return n.Read(t.Rd, t.Endian)
+			}
+		}
 	case String:
 	case UVarint:
 		n, e := t.Endian.FUVarint(t.Rd)

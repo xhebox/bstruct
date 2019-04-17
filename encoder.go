@@ -59,6 +59,12 @@ func (t *Encoder) Encode(w *Type, data interface{}) error {
 func (t *Encoder) encode(w *Type, align int, v reflect.Value) error {
 	switch w.kind {
 	case Invalid:
+		if v.CanInterface() {
+			n, ok := v.Interface().(CustomRW)
+			if ok {
+				return n.Write(t.Wt, t.Endian)
+			}
+		}
 	case String:
 		if _, e := t.Wt.Write(str_bytes(v.String())); e != nil {
 			return errors.Wrapf(e, "can not write string")

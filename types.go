@@ -1,5 +1,11 @@
 package bstruct
 
+import (
+	"io"
+
+	"github.com/xhebox/bstruct/byteorder"
+)
+
 var Types = map[string]*Type{
 	"bool":    &Type{kind: Bool},
 	"int8":    &Type{kind: Int8},
@@ -20,4 +26,9 @@ var Types = map[string]*Type{
 // register new Type for type cast program
 func RegisterType(name string, t *Type) {
 	Types[name] = t
+}
+
+type CustomRW interface {
+	Read(io.Reader, byteorder.ByteOrder) error
+	Write(io.Writer, byteorder.ByteOrder) error
 }
