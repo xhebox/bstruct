@@ -23,7 +23,7 @@ func str_bytes(s string) []byte {
 type Encoder struct {
 	Wt     io.Writer
 	Endian byteorder.ByteOrder
-	Runner *runner
+	Runner *Runner
 	buf    []byte
 	root   interface{}
 }
@@ -41,7 +41,7 @@ func NewEncoder() *Encoder {
 
 	enc := &Encoder{
 		Endian: HostEndian,
-		Runner: &runner{
+		Runner: &Runner{
 			progs: map[string]func(...interface{}) interface{}{},
 		},
 		buf: make([]byte, 16),

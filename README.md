@@ -172,7 +172,7 @@ Int16 []struct{
 
 as string is immutable, it does not implement slice mode. string is seen as a separate type, and is skipped automatically when read. the only way to change its value is assignment.
 
-# other thins
+# other things
 
 - endian: defaults to host endianess.
 - nested slice/string: tag is applied to slice itself, so it's impossible to specify tag for the second dimesion slice. so nested slice/string is not allowed. but you can wrap it as a struct, then it's ok.

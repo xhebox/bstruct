@@ -16,21 +16,21 @@ func newProgs(tag reflect.StructTag) progs {
 	}
 }
 
-type runner struct {
+type Runner struct {
 	progs map[string]func(...interface{}) interface{}
 }
 
-func (c *runner) Register(name string, f func(...interface{}) interface{}) {
+func (c *Runner) Register(name string, f func(...interface{}) interface{}) {
 	c.progs[name] = f
 }
 
-func (c *runner) Copy(t *runner) {
+func (c *Runner) Copy(t *Runner) {
 	for k, v := range t.progs {
 		c.progs[k] = v
 	}
 }
 
-func (c *runner) exec(name string, s ...interface{}) interface{} {
+func (c *Runner) exec(name string, s ...interface{}) interface{} {
 	f, ok := c.progs[name]
 	if !ok {
 		return nil

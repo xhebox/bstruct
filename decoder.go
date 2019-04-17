@@ -54,7 +54,7 @@ func basicsize(k Kind) int {
 type Decoder struct {
 	Rd     io.Reader
 	Endian byteorder.ByteOrder
-	Runner *runner
+	Runner *Runner
 	buf    []byte
 	root   interface{}
 }
@@ -72,7 +72,7 @@ func NewDecoder() *Decoder {
 
 	dec := &Decoder{
 		Endian: HostEndian,
-		Runner: &runner{
+		Runner: &Runner{
 			progs: map[string]func(...interface{}) interface{}{},
 		},
 		buf: make([]byte, 16),
