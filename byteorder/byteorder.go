@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	UVMAXLEN = 10
 	// false stands for msb
 	// true stands for lsb
 	BigEndian    = ByteOrder(false)
@@ -129,7 +130,7 @@ func (t ByteOrder) UVarintB(ch []byte) (uint64, int, error) {
 	if t {
 		s := uint(0)
 		for {
-			if c == 10 {
+			if c == UVMAXLEN {
 				return 0, 0, errors.New("overflowed uint64")
 			}
 
@@ -144,7 +145,7 @@ func (t ByteOrder) UVarintB(ch []byte) (uint64, int, error) {
 		}
 	} else {
 		for {
-			if c == 10 {
+			if c == UVMAXLEN {
 				return 0, 0, errors.New("overflowed uint64")
 			}
 
