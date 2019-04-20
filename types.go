@@ -28,7 +28,10 @@ func RegisterType(name string, t *Type) {
 	Types[name] = t
 }
 
-type CustomRW interface {
-	Read(io.Reader, byteorder.ByteOrder) error
+type CustomW interface {
 	Write(io.Writer, byteorder.ByteOrder) error
+}
+
+type CustomR interface {
+	Read(io.Reader, byteorder.ByteOrder) error
 }

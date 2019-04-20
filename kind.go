@@ -38,7 +38,7 @@ const (
 	mapf // wasted
 	ptrf // wasted
 	Slice
-	String
+	stringf // wasted
 	Struct
 	unsafepointerf // wasted
 	UVarint
@@ -77,8 +77,6 @@ func (this Kind) String() string {
 		return "float64"
 	case Slice:
 		return "slice"
-	case String:
-		return "string"
 	case Struct:
 		return "struct"
 	case Interface:
@@ -98,5 +96,21 @@ func (this Kind) IsBasic() bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// only return size for basic kinds, 0 otherwise
+func (this Kind) Size() int {
+	switch this {
+	case Bool, Int8, Uint8:
+		return 1
+	case Int16, Uint16:
+		return 2
+	case Int32, Uint32, Float32:
+		return 4
+	case Int64, Uint64, Float64:
+		return 8
+	default:
+		return 0
 	}
 }

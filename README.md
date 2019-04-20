@@ -31,42 +31,42 @@ ok, i know you care about it:
 
 ```go
 type small struct {
- A       uint32 `endian:"little"`
- Test1   [4]byte
- B, C, D int16
- Length  int32 `endian:"big"`
- Test2   [4]byte
+	A       uint32  `endian:"big"`
+	Test1   [4]byte `endian:"big"`
+	B, C, D int16   `endian:"big"`
+	Length  int32   `endian:"big"`
+	Test2   [4]byte `endian:"big"`
 }
 
 type big struct {
- A       uint32 `endian:"little"`
- Test1   [512]byte
- B, C, D int16
- Length  int32 `endian:"big"`
- Test2   [4]byte
+	A       uint32     `endian:"big"`
+	Test1   [128]int32 `endian:"big"`
+	B, C, D int16      `endian:"big"`
+	Length  int32      `endian:"big"`
+	Test2   [4]byte    `endian:"big"`
 }
 ```
 
 std stands for binary/encoding, time of generate coder&Type is not counted:
 
 ```
-BenchmarkSmallDecode-4           3000000               588 ns/op
-BenchmarkStdSmallDecode-4        2000000               675 ns/op
-BenchmarkBigDecode-4             3000000               602 ns/op
-BenchmarkStdBigDecode-4           200000              6554 ns/op
-BenchmarkSmallEncode-4           2000000               643 ns/op
-BenchmarkStdSmallEncode-4        1000000              1002 ns/op
-BenchmarkBigEncode-4             2000000               936 ns/op
-BenchmarkStdBigEncode-4           200000              7227 ns/op
-BenchmarkApiDecode-4             1000000              1978 ns/op
-BenchmarkApiEncode-4             1000000              1255 ns/op
+BenchmarkSmallDecode-4           5000000               244 ns/op              48 B/op          1 allocs/op
+BenchmarkBigDecode-4             3000000               564 ns/op              48 B/op          1 allocs/op
+BenchmarkSmallEncode-4          10000000               210 ns/op               0 B/op          0 allocs/op
+BenchmarkBigEncode-4             2000000               826 ns/op               0 B/op          0 allocs/op
+
+BenchmarkStdSmallDecode-4        2000000               675 ns/op             136 B/op          9 allocs/op
+BenchmarkStdBigDecode-4           500000              2737 ns/op             680 B/op          9 allocs/op
+BenchmarkStdSmallEncode-4        2000000               874 ns/op             176 B/op         16 allocs/op
+BenchmarkStdBigEncode-4           500000              2922 ns/op            1264 B/op         16 allocs/op
+
+BenchmarkApiDecode-4             1000000              1649 ns/op            1240 B/op         15 allocs/op
+BenchmarkApiEncode-4             2000000               839 ns/op             400 B/op          5 allocs/op
 ```
 
 you can get it by running `go test -bench .`
 
 it should be the fatest one despite its advance function(scripts, align/endian/skip wont effect much). of course, it is a universal machine and wont be faster than protobuf or which serialization library.
-
-the huge difference as data gets larger is a made by a speed hack.
 
 # endian tag
 
@@ -98,7 +98,7 @@ Int16 int16 `skip:"rwdsfsd"`
 
 basic-type(uint,int,float,complex) only flag.
 
-read `align` bytes, but just use the first `n` bytes. by default align is equal to the size of the type. align has a maximum exactly same as the internal buffer, which is currently 128 bytes.
+read `align` bytes, but just use the first `n` bytes. by default align is equal to the size of the type. align has a maximum, you can get it by `MaxAlign`.
 
 ```go
 Int16 int16 `align:"16"`
@@ -146,18 +146,11 @@ in bstruct, special tags apply to slice.
 
 for convenience, slice has three **reading** modes:
 
-- modelen: mark tag 'length' as a program. prog should return the slice length before reading. zero length skip. and if elem is of basic type, it speeds up by a hack, but took a double space. array internally is implemented as a modelen slice.
-- modesize: mark tag 'size' as a program. prog should return the space in bytes before readning. zero size skip. and if elem is of basic type, it becomes modelen. or it's modeeof with a limitedreader.
-- modeeof: it will read until EOF, EOF is not an error.
+- modelen: mark tag 'length' as a program. prog should return the slice length before reading. non-positive length skip. and if elem is of basic type, it offers a high speed. array internally is implemented as a modelen slice.
+- modesize: mark tag 'size' as a program. prog should return the space in bytes before readning. non-positive skip. and if elem is of basic type, it becomes modelen. or it's modeeof with a limitedreader.
+- modeeof: it will read until EOF, EOF is not an error. if reader is of type bytes.Reader or bytes.Buffer, while its child is of fix-sized, it becomes modelen.
 
-slice defaults to modeeof, if `v.Len() != 0` at runtime, it goes to modelen.
-
-as modesize, modeeof is not able to prealloc the slice, growing slice will leave useless buffer there, which may occupy times of space than the original data size.
-
-there're two global variables can be tuned:
-
-- SliceAccelThreshold: modelen does not pick the hack method until it has a larger length.
-- SliceInitLen: modeof, the initial guess length.
+slice defaults to modeeof, if its child is fix-sized, it goes to modelen eventually.
 
 ```go
 Int16 []int16
@@ -168,12 +161,14 @@ Int16 []struct{
 } `size:"func3"` // but not this one, so more space is taken
 ```
 
+Note that, slice of struct is always very slow, whatever mode it is at. This is basically a result of trying to support scripts.
+
 # string
 
-as string is immutable, it does not implement slice mode. string is seen as a separate type, and is skipped automatically when read. the only way to change its value is assignment.
+as string is immutable, it does not implement slice mode. the only way to change its value is assignment.
 
 # other things
 
 - endian: defaults to host endianess.
-- nested slice/string: tag is applied to slice itself, so it's impossible to specify tag for the second dimesion slice. so nested slice/string is not allowed. but you can wrap it as a struct, then it's ok.
-- since bstruct is using read frequently, i'd recommend bufio if it's a stream. otherwise bytes.Reader is enough.
+- nested slice/string: not allowed. but you can wrap it as a struct, then it's ok.
+- since bstruct is using read frequently, i'd recommend bufio if it's a stream. otherwise bytes.Reader is good.

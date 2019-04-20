@@ -1,5 +1,7 @@
 package bstruct
 
+import "reflect"
+
 type Type struct {
 	kind Kind
 
@@ -7,7 +9,6 @@ type Type struct {
 	slice_elem  *Type
 	slice_extra string
 
-	struct_num  int
 	struct_elem []*Field
 }
 
@@ -24,7 +25,7 @@ func (this *Type) Elem() *Type {
 
 // num of field
 func (this *Type) NumField() int {
-	return this.struct_num
+	return len(this.struct_elem)
 }
 
 // for struct
@@ -45,4 +46,28 @@ func (this *Type) FieldByName(s string) *Field {
 	}
 
 	return nil
+}
+
+func (this *Type) Size(v reflect.Type) int {
+	n := this.Kind().Size()
+	if n != 0 {
+		return n
+	}
+
+	switch this.Kind() {
+	case Array:
+		return this.slice_elem.Size(v.Elem()) * v.Len()
+	case Struct:
+		n := 0
+		for k, b := range this.struct_elem {
+			m := b.Type().Size(v.Field(k).Type)
+			if m == 0 {
+				return 0
+			}
+			n += m
+		}
+		return n
+	default:
+		return 0
+	}
 }

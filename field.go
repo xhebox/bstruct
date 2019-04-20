@@ -15,7 +15,11 @@ type Field struct {
 	name  string
 	flag  FieldFlag
 	align int
-	prog  map[string]string
+	typ   string
+	rdm   string
+	rdn   string
+	wtm   string
+	wtn   string
 }
 
 func newField(field reflect.StructField) (*Field, error) {
@@ -31,6 +35,8 @@ func newField(field reflect.StructField) (*Field, error) {
 			case "lsb", "little":
 				flag |= FlagCusEnd
 				flag &^= FlagBig
+			default:
+				flag &^= FlagCusEnd
 			}
 		}
 
@@ -50,7 +56,7 @@ func newField(field reflect.StructField) (*Field, error) {
 				return nil, e
 			}
 
-			if align > 16 {
+			if align > MaxAlign {
 				return nil, errors.Errorf("align has an upper limit of 16 bytes")
 			}
 		}
@@ -59,7 +65,11 @@ func newField(field reflect.StructField) (*Field, error) {
 	return &Field{
 		flag:  flag,
 		align: align,
-		prog:  newProgs(field.Tag),
+		typ:   field.Tag.Get("type"),
+		rdm:   field.Tag.Get("rdm"),
+		rdn:   field.Tag.Get("rdn"),
+		wtm:   field.Tag.Get("wtm"),
+		wtn:   field.Tag.Get("wtn"),
 	}, nil
 }
 
@@ -91,8 +101,8 @@ func (this *Field) Align() int {
 
 // align should between [size, 16]
 func (this *Field) SetAlign(arg int) {
-	sz := basicsize(this.rtype.Kind())
-	if arg >= sz && arg <= 16 {
+	sz := this.rtype.Kind().Size()
+	if arg >= sz && arg <= MaxAlign {
 		this.align = arg
 	}
 }

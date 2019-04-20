@@ -1,242 +1,177 @@
 package bstruct
 
 import (
+	"bytes"
 	"io"
 	"reflect"
 	"strings"
+	"unsafe"
 
 	"github.com/pkg/errors"
 	"github.com/xhebox/bstruct/byteorder"
-)
-
-const (
-	max   = int(^uint(0) >> 1)
-	max64 = int64(^uint64(0) >> 1)
 )
 
 type SliceMode uint8
 
 const (
 	SliceModeLen SliceMode = iota
-	SliceModeEOF
 	SliceModeSize
+	SliceModeEOF
 )
 
 var (
-	// 4 is the bound where reflect way is still faster than my speed trick for large array/slice
-	// but that is the optimized value on my machine, you could bench your own value
-	SliceAccelThreshold = 4
-
-	// the initial guess length when it's modeEOF
-	SliceInitLen = 256
+	decbuf = make([]byte, MaxAlign)
 )
-
-func basicsize(k Kind) int {
-	switch k {
-	case Bool, Int8, Uint8:
-		return 1
-	case Int16, Uint16:
-		return 2
-	case Int32, Uint32, Float32:
-		return 4
-	case Int64, Uint64, Float64:
-		return 8
-	default:
-		return 0
-	}
-}
 
 // Decoder has three exported field.
 //
 // 1. Rd: every time you want to read something new, you need to refresh the reader.
 //
 // 2. Endian: when you want to change the default Endian on the fly
+//
+// 3. Runner: hold all callback functions
 type Decoder struct {
 	Rd     io.Reader
 	Endian byteorder.ByteOrder
 	Runner *Runner
-	buf    []byte
 	root   interface{}
 }
 
 // just like New() *Type, always create decoder by this function
 func NewDecoder() *Decoder {
-	{
-		a := 0xABCD
-		if uint8(a) == 0xAB {
-			HostEndian = byteorder.BigEndian
-		} else {
-			HostEndian = byteorder.LittleEndian
-		}
-	}
-
-	dec := &Decoder{
+	return &Decoder{
 		Endian: HostEndian,
 		Runner: &Runner{
 			progs: map[string]func(...interface{}) interface{}{},
 		},
-		buf: make([]byte, 16),
 	}
-
-	return dec
 }
 
 // pass the generated *Type, and a pointer to data
 func (t *Decoder) Decode(w *Type, data interface{}) error {
 	t.root = data
-	return t.decode(w, basicsize(w.kind), reflect.Indirect(reflect.ValueOf(data)), nil)
+	return t.decode(w, w.kind.Size(), reflect.Indirect(reflect.ValueOf(data)), nil)
 }
 
 func (t *Decoder) decode(w *Type, align int, v reflect.Value, pvi interface{}) error {
 	switch w.kind {
 	case Invalid:
 		if v.CanInterface() {
-			n, ok := v.Interface().(CustomRW)
+			n, ok := v.Interface().(CustomR)
 			if ok {
 				return n.Read(t.Rd, t.Endian)
 			}
 		}
-	case String:
 	case UVarint:
-		n, e := t.Endian.FUVarint(t.Rd)
+		n, e := byteorder.UVarint(t.Rd, t.Endian)
 		if e != nil {
 			return errors.Wrapf(e, "can not read uvarint")
 		}
 
 		v.SetUint(n)
 	case Varint:
-		n, e := t.Endian.FVarint(t.Rd)
+		n, e := byteorder.Varint(t.Rd, t.Endian)
 		if e != nil {
 			return errors.Wrapf(e, "can not read varint")
 		}
 
 		v.SetInt(n)
-	case Bool:
-		if _, e := t.Rd.Read(t.buf[:align]); e != nil {
-			return errors.Wrapf(e, "can not read bool")
+	case Bool, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, Float32, Float64:
+		size := w.kind.Size()
+
+		hdr := reflect.SliceHeader{
+			Data: v.UnsafeAddr(),
+			Len:  size,
+			Cap:  size,
 		}
 
-		v.SetBool(t.Endian.Bool(t.buf))
-	case Int8:
-		if _, e := t.Rd.Read(t.buf[:align]); e != nil {
-			return errors.Wrapf(e, "can not read int8")
+		buf := *(*[]byte)(unsafe.Pointer(&hdr))
+
+		if _, e := t.Rd.Read(buf); e != nil {
+			return errors.Wrapf(e, "can not read")
 		}
 
-		v.SetInt(int64(t.Endian.Int8(t.buf)))
-	case Int16:
-		if _, e := t.Rd.Read(t.buf[:align]); e != nil {
-			return errors.Wrapf(e, "can not read int16")
+		if align > size {
+			if _, e := t.Rd.Read(decbuf[:align-size]); e != nil {
+				return errors.Wrapf(e, "can not read")
+			}
 		}
 
-		v.SetInt(int64(t.Endian.Int16(t.buf)))
-	case Int32:
-		if _, e := t.Rd.Read(t.buf[:align]); e != nil {
-			return errors.Wrapf(e, "can not read int32")
+		if HostEndian != t.Endian {
+			byteorder.ReverseBytes(buf)
 		}
-
-		v.SetInt(int64(t.Endian.Int32(t.buf)))
-	case Int64:
-		if _, e := t.Rd.Read(t.buf[:align]); e != nil {
-			return errors.Wrapf(e, "can not read int64")
-		}
-
-		v.SetInt(t.Endian.Int64(t.buf))
-	case Uint8:
-		if _, e := t.Rd.Read(t.buf[:align]); e != nil {
-			return errors.Wrapf(e, "can not read uint8")
-		}
-
-		v.SetUint(uint64(t.Endian.Uint8(t.buf)))
-	case Uint16:
-		if _, e := t.Rd.Read(t.buf[:align]); e != nil {
-			return errors.Wrapf(e, "can not read uint16")
-		}
-
-		v.SetUint(uint64(t.Endian.Uint16(t.buf)))
-	case Uint32:
-		if _, e := t.Rd.Read(t.buf[:align]); e != nil {
-			return errors.Wrapf(e, "can not read uint32")
-		}
-
-		v.SetUint(uint64(t.Endian.Uint32(t.buf)))
-	case Uint64:
-		if _, e := t.Rd.Read(t.buf[:align]); e != nil {
-			return errors.Wrapf(e, "can not read uint64")
-		}
-
-		v.SetUint(t.Endian.Uint64(t.buf))
-	case Float32:
-		if _, e := t.Rd.Read(t.buf[:align]); e != nil {
-			return errors.Wrapf(e, "can not read float32")
-		}
-
-		v.SetFloat(float64(t.Endian.Float32(t.buf)))
-	case Float64:
-		if _, e := t.Rd.Read(t.buf[:align]); e != nil {
-			return errors.Wrapf(e, "can not read float64")
-		}
-
-		v.SetFloat(t.Endian.Float64(t.buf))
 	case Array, Slice:
 		var ord = t.Rd
 		var mode = w.slice_mode
 
-		if len(w.slice_extra) != 0 {
-			switch w.slice_mode {
-			case SliceModeLen:
-				var l int
-				var ok bool
-				if pvi != nil {
-					l, ok = t.Runner.exec(w.slice_extra, t.root, pvi).(int)
-				} else {
-					l, ok = t.Runner.exec(w.slice_extra, t.root).(int)
-				}
-				if !ok {
-					return errors.Errorf("can not execute length program")
-				}
-
-				if l > 0 {
-					v.Set(reflect.MakeSlice(v.Type(), l, l))
-				} else if l == 0 {
-					return nil
-				} else {
-					return errors.Errorf("length program returned a negative %d", l)
-				}
-			case SliceModeSize:
-				var l int
-				var ok bool
-				if pvi != nil {
-					l, ok = t.Runner.exec(w.slice_extra, t.root, pvi).(int)
-				} else {
-					l, ok = t.Runner.exec(w.slice_extra, t.root).(int)
-				}
-				if !ok {
-					return errors.Errorf("can not execute size program")
-				}
-
-				if l > 0 {
-					sz := basicsize(w.slice_elem.Kind())
-					if sz <= 0 {
-						t.Rd = io.LimitReader(ord, int64(l))
-						mode = SliceModeEOF
-
-						v.Set(reflect.MakeSlice(v.Type(), l, l))
-					} else {
-						cnt := int(l) / sz
-						v.Set(reflect.MakeSlice(v.Type(), cnt, cnt))
-
-						mode = SliceModeLen
-					}
-				} else if l == 0 {
-					return nil
-				} else {
-					mode = SliceModeEOF
-				}
+		switch mode {
+		case SliceModeLen:
+			if len(w.slice_extra) == 0 {
+				break
 			}
-		}
 
-		if mode == SliceModeEOF && v.Len() != 0 {
-			mode = SliceModeLen
+			var l int
+			var ok bool
+			if pvi != nil {
+				l, ok = t.Runner.exec(w.slice_extra, t.root, pvi).(int)
+			} else {
+				l, ok = t.Runner.exec(w.slice_extra, t.root).(int)
+			}
+			if !ok {
+				return errors.Errorf("can not execute length program")
+			}
+
+			if l > 0 {
+				v.Set(reflect.MakeSlice(v.Type(), l, l))
+			} else {
+				return nil
+			}
+		case SliceModeSize:
+			if len(w.slice_extra) == 0 {
+				panic("internal error")
+			}
+
+			var l int
+			var ok bool
+			if pvi != nil {
+				l, ok = t.Runner.exec(w.slice_extra, t.root, pvi).(int)
+			} else {
+				l, ok = t.Runner.exec(w.slice_extra, t.root).(int)
+			}
+			if !ok {
+				return errors.Errorf("can not execute size program")
+			}
+
+			if l > 0 {
+				sz := w.slice_elem.Kind().Size()
+				if sz == 0 {
+					t.Rd = io.LimitReader(ord, int64(l))
+					mode = SliceModeEOF
+				} else {
+					cnt := l / sz
+					v.Set(reflect.MakeSlice(v.Type(), cnt, cnt))
+					mode = SliceModeLen
+				}
+			} else {
+				return nil
+			}
+		case SliceModeEOF:
+			size := w.slice_elem.Size(v.Type().Elem())
+
+			if size == 0 {
+				break
+			}
+
+			switch n := t.Rd.(type) {
+			case *bytes.Buffer:
+				cnt := n.Len() / size
+				v.Set(reflect.MakeSlice(v.Type(), cnt, cnt))
+				mode = SliceModeLen
+			case *bytes.Reader:
+				cnt := n.Len() / size
+				v.Set(reflect.MakeSlice(v.Type(), cnt, cnt))
+				mode = SliceModeLen
+			}
 		}
 
 		switch mode {
@@ -245,157 +180,82 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value, pvi interface{}) e
 			elem := w.slice_elem
 			kind := elem.kind
 
-			if kind.IsBasic() && l > SliceAccelThreshold {
-				sz := basicsize(kind)
-				m := l * sz
+			if kind.IsBasic() {
+				size := kind.Size()
 
-				if n := cap(t.buf); n < m {
-					for n < m {
-						n *= 2
-					}
-					t.buf = make([]byte, n)
+				hdr := reflect.SliceHeader{
+					Len: l * size,
+					Cap: l * size,
 				}
 
-				if _, e := t.Rd.Read(t.buf[:m]); e != nil {
+				if w.kind == Array {
+					hdr.Data = v.UnsafeAddr()
+				} else {
+					o := (*reflect.SliceHeader)(unsafe.Pointer(v.UnsafeAddr()))
+					hdr.Data = o.Data
+				}
+				buf := *(*[]byte)(unsafe.Pointer(&hdr))
+
+				if _, e := t.Rd.Read(buf); e != nil {
 					return errors.WithStack(e)
 				}
 
-				switch kind {
-				case Bool:
-					slice := make([]bool, l)
-
-					for k := 0; k < l; k++ {
-						slice[k] = t.Endian.Bool(t.buf[k:])
-					}
-
-					reflect.Copy(v, reflect.ValueOf(slice))
-				case Int8:
-					slice := make([]int8, l)
-
-					for k := 0; k < l; k++ {
-						slice[k] = t.Endian.Int8(t.buf[k:])
-					}
-
-					reflect.Copy(v, reflect.ValueOf(slice))
-				case Int16:
-					slice := make([]int16, l)
-
-					for k := 0; k < l; k++ {
-						slice[k] = t.Endian.Int16(t.buf[k*sz:])
-					}
-
-					reflect.Copy(v, reflect.ValueOf(slice))
-				case Int32:
-					slice := make([]int32, l)
-
-					for k := 0; k < l; k++ {
-						slice[k] = t.Endian.Int32(t.buf[k*sz:])
-					}
-
-					reflect.Copy(v, reflect.ValueOf(slice))
-				case Int64:
-					slice := make([]int64, l)
-
-					for k := 0; k < l; k++ {
-						slice[k] = t.Endian.Int64(t.buf[k*sz:])
-					}
-
-					reflect.Copy(v, reflect.ValueOf(slice))
-				case Uint8:
-					reflect.Copy(v, reflect.ValueOf(t.buf))
-				case Uint16:
-					slice := make([]uint16, l)
-
-					for k := 0; k < l; k++ {
-						slice[k] = t.Endian.Uint16(t.buf[k*sz:])
-					}
-
-					reflect.Copy(v, reflect.ValueOf(slice))
-				case Uint32:
-					slice := make([]uint32, l)
-
-					for k := 0; k < l; k++ {
-						slice[k] = t.Endian.Uint32(t.buf[k*sz:])
-					}
-
-					reflect.Copy(v, reflect.ValueOf(slice))
-				case Uint64:
-					slice := make([]uint64, l)
-
-					for k := 0; k < l; k++ {
-						slice[k] = t.Endian.Uint64(t.buf[k*sz:])
-					}
-
-					reflect.Copy(v, reflect.ValueOf(slice))
-				case Float32:
-					slice := make([]float32, l)
-
-					for k := 0; k < l; k++ {
-						slice[k] = t.Endian.Float32(t.buf[k*sz:])
-					}
-
-					reflect.Copy(v, reflect.ValueOf(slice))
-				case Float64:
-					slice := make([]float64, l)
-
-					for k := 0; k < l; k++ {
-						slice[k] = t.Endian.Float64(t.buf[k*sz:])
-					}
-
-					reflect.Copy(v, reflect.ValueOf(slice))
+				if HostEndian != t.Endian {
+					byteorder.ReverseBuf(buf, size)
 				}
 			} else {
 				for cnt := 0; cnt < l; cnt++ {
-					if e := t.decode(elem, align, v.Index(cnt), nil); e != nil {
+					if e := t.decode(elem, 0, v.Index(cnt), nil); e != nil {
 						return errors.Wrapf(e, "can not execute decode for elem[%d]", cnt)
 					}
 				}
 			}
 		case SliceModeEOF:
-			vtype := v.Type()
+			valtype := v.Type().Elem()
 			elem := w.slice_elem
-			v.Set(reflect.MakeSlice(vtype, SliceInitLen, SliceInitLen))
+			array := []reflect.Value{}
 
-			cnt := 0
-			for nm := v.Len(); cnt < max; {
-				for ; cnt < nm; cnt++ {
-					if e := t.decode(elem, align, v.Index(cnt), nil); e != nil {
-						if strings.HasSuffix(e.Error(), "EOF") {
-							v.SetLen(cnt)
-							t.Rd = ord
-							return nil
-						}
+			for {
+				val := reflect.New(valtype).Elem()
 
-						return errors.Wrapf(e, "can not decode elem[%d]", cnt)
+				if e := t.decode(elem, 0, val, nil); e != nil {
+					t.Rd = ord
+
+					if strings.HasSuffix(e.Error(), "EOF") {
+						return nil
 					}
+
+					return errors.Wrapf(e, "can not decode elem")
 				}
 
-				var nv = reflect.MakeSlice(vtype, v.Len()*2, v.Len()*2)
-				reflect.Copy(nv, v)
-				v.Set(nv)
-				nm = v.Len()
+				array = append(array, val)
 			}
-			v.SetLen(max)
+
+			v.Set(reflect.Append(v, array...))
 		default:
 			panic("internal error")
 		}
 
 		t.Rd = ord
 	case Struct:
-		vi := v.Interface()
+		var vi interface{}
 
 		for k, f := range w.struct_elem {
 			var fw = f.rtype
 			var fv = v.Field(k)
 
-			if l := len(f.prog["type"]); l != 0 {
+			if len(f.typ)+len(f.rdm)+len(f.rdn)+len(fw.slice_extra) > 0 {
+				vi = v.Interface()
+			}
+
+			if l := len(f.typ); l != 0 {
 				typ := ""
 
-				if f.prog["type"][0] == '\'' && f.prog["type"][l-1] == '\'' {
-					typ = f.prog["type"][1:l]
+				if f.typ[0] == '\'' && f.typ[l-1] == '\'' {
+					typ = f.typ[1:l]
 				} else {
 					var ok bool
-					typ, ok = t.Runner.exec(f.prog["type"], t.root, vi).(string)
+					typ, ok = t.Runner.exec(f.typ, t.root, vi).(string)
 					if !ok {
 						return errors.Errorf("can not execute type program")
 					}
@@ -407,38 +267,36 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value, pvi interface{}) e
 				}
 
 				fw = rtype
-				f.align = basicsize(rtype.kind)
+				f.align = rtype.kind.Size()
 			}
 
-			if len(f.prog["rdm"]) != 0 {
-				e, ok := t.Runner.exec(f.prog["rdm"], t.root, vi).(error)
+			if len(f.rdm) != 0 {
+				e, ok := t.Runner.exec(f.rdm, t.root, vi).(error)
 				if ok {
 					return errors.Errorf("can not execute rdm program: %+v", e)
 				}
 			}
 
-			if len(f.name) != 0 {
-				if f.flag&FlagSkipr == 0 {
-					var oriend = t.Endian
+			if f.flag&FlagSkipr == 0 {
+				var oriend = t.Endian
 
-					if f.flag&FlagCusEnd != 0 {
-						if f.flag&FlagBig != 0 {
-							t.Endian = byteorder.BigEndian
-						} else {
-							t.Endian = byteorder.LittleEndian
-						}
+				if f.flag&FlagCusEnd != 0 {
+					if f.flag&FlagBig != 0 {
+						t.Endian = byteorder.BigEndian
+					} else {
+						t.Endian = byteorder.LittleEndian
 					}
-
-					if e := t.decode(fw, f.align, fv, vi); e != nil {
-						return errors.Wrapf(e, "can not execute decode for field [%s]", f.Name())
-					}
-
-					t.Endian = oriend
 				}
+
+				if e := t.decode(fw, f.align, fv, vi); e != nil {
+					return errors.Wrapf(e, "can not execute decode for field [%s]", f.Name())
+				}
+
+				t.Endian = oriend
 			}
 
-			if len(f.prog["rdn"]) != 0 {
-				e, ok := t.Runner.exec(f.prog["rdn"], t.root, vi).(error)
+			if len(f.rdn) != 0 {
+				e, ok := t.Runner.exec(f.rdn, t.root, vi).(error)
 				if ok {
 					return errors.Errorf("can not execute rdn program: %+v", e)
 				}

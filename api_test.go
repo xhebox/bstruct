@@ -7,19 +7,19 @@ import (
 )
 
 type small struct {
-	A       uint32 `endian:"little"`
-	Test1   [4]byte
-	B, C, D int16
-	Length  int32 `endian:"big"`
-	Test2   [4]byte
+	A       uint32  `endian:"big"`
+	Test1   [4]byte `endian:"big"`
+	B, C, D int16   `endian:"big"`
+	Length  int32   `endian:"big"`
+	Test2   [4]byte `endian:"big"`
 }
 
 type big struct {
-	A       uint32 `endian:"little"`
-	Test1   [512]byte
-	B, C, D int16
-	Length  int32 `endian:"big"`
-	Test2   [4]byte
+	A       uint32     `endian:"big"`
+	Test1   [128]int32 `endian:"big"`
+	B, C, D int16      `endian:"big"`
+	Length  int32      `endian:"big"`
+	Test2   [4]byte    `endian:"big"`
 }
 
 type basicCover struct {
@@ -70,12 +70,9 @@ var testbytes = []byte{
 var smallbench = small{}
 var bigbench = big{}
 
-var st = MustNew(smallbench)
-var bt = MustNew(bigbench)
-var dec = NewDecoder()
-var enc = NewEncoder()
-
 func BenchmarkSmallDecode(b *testing.B) {
+	var st = MustNew(smallbench)
+	var dec = NewDecoder()
 	for i := 0; i < b.N; i++ {
 		dec.Rd = bytes.NewReader(testbytes)
 		if e := dec.Decode(st, &smallbench); e != nil {
@@ -94,6 +91,8 @@ func BenchmarkStdSmallDecode(b *testing.B) {
 }
 
 func BenchmarkBigDecode(b *testing.B) {
+	var bt = MustNew(bigbench)
+	var dec = NewDecoder()
 	for i := 0; i < b.N; i++ {
 		dec.Rd = bytes.NewReader(testbytes)
 		if e := dec.Decode(bt, &bigbench); e != nil {
@@ -112,8 +111,12 @@ func BenchmarkStdBigDecode(b *testing.B) {
 }
 
 func BenchmarkSmallEncode(b *testing.B) {
+	var st = MustNew(smallbench)
+	buf := &bytes.Buffer{}
+	var enc = NewEncoder()
+	enc.Wt = buf
 	for i := 0; i < b.N; i++ {
-		enc.Wt = &bytes.Buffer{}
+		buf.Reset()
 		if e := enc.Encode(st, &smallbench); e != nil {
 			b.Fatalf("%+v\n", e)
 		}
@@ -121,17 +124,22 @@ func BenchmarkSmallEncode(b *testing.B) {
 }
 
 func BenchmarkStdSmallEncode(b *testing.B) {
+	buf := &bytes.Buffer{}
 	for i := 0; i < b.N; i++ {
-		var buf bytes.Buffer
-		if e := binary.Write(&buf, binary.BigEndian, smallbench); e != nil {
+		buf.Reset()
+		if e := binary.Write(buf, binary.BigEndian, smallbench); e != nil {
 			b.Fatalf("%+v\n", e)
 		}
 	}
 }
 
 func BenchmarkBigEncode(b *testing.B) {
+	var bt = MustNew(bigbench)
+	var enc = NewEncoder()
+	buf := &bytes.Buffer{}
+	enc.Wt = buf
 	for i := 0; i < b.N; i++ {
-		enc.Wt = &bytes.Buffer{}
+		buf.Reset()
 		if e := enc.Encode(bt, &bigbench); e != nil {
 			b.Fatalf("%+v\n", e)
 		}
@@ -139,9 +147,10 @@ func BenchmarkBigEncode(b *testing.B) {
 }
 
 func BenchmarkStdBigEncode(b *testing.B) {
+	buf := &bytes.Buffer{}
 	for i := 0; i < b.N; i++ {
-		var buf bytes.Buffer
-		if e := binary.Write(&buf, binary.BigEndian, bigbench); e != nil {
+		buf.Reset()
+		if e := binary.Write(buf, binary.BigEndian, bigbench); e != nil {
 			b.Fatalf("%+v\n", e)
 		}
 	}
@@ -150,6 +159,7 @@ func BenchmarkStdBigEncode(b *testing.B) {
 func BenchmarkApiDecode(b *testing.B) {
 	var cover = &basicCover{}
 	var ct = MustNew(cover)
+	var dec = NewDecoder()
 
 	dec.Runner.Register("An_size", func(...interface{}) interface{} {
 		return 4 + 2
@@ -166,7 +176,7 @@ func BenchmarkApiDecode(b *testing.B) {
 	})
 
 	dec.Runner.Register("Array1_test", func(s ...interface{}) interface{} {
-		r := s[1].(*basicCover)
+		r := s[1].(basicCover)
 
 		r.Byte = 4
 		r.Uint16 = 8
@@ -185,6 +195,7 @@ func BenchmarkApiDecode(b *testing.B) {
 func BenchmarkApiEncode(b *testing.B) {
 	var cover = &basicCover{}
 	var ct = MustNew(cover)
+	var enc = NewEncoder()
 
 	for i := 0; i < b.N; i++ {
 		enc.Wt = &bytes.Buffer{}
@@ -197,6 +208,8 @@ func BenchmarkApiEncode(b *testing.B) {
 func TestApi(t *testing.T) {
 	var cover = &basicCover{}
 	var ct = MustNew(cover)
+	var dec = NewDecoder()
+	var enc = NewEncoder()
 
 	dec.Runner.Register("An_size", func(...interface{}) interface{} {
 		return 4 + 2
