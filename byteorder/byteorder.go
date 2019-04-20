@@ -116,7 +116,7 @@ func Int8(rd io.Reader) (int8, error) {
 	return int8(u), e
 }
 
-func Uint16(t binary.ByteOrder, rd io.Reader) (uint16, error) {
+func Uint16(rd io.Reader, t binary.ByteOrder) (uint16, error) {
 	buf := make([]byte, 2)
 
 	_, e := rd.Read(buf)
@@ -127,12 +127,12 @@ func Uint16(t binary.ByteOrder, rd io.Reader) (uint16, error) {
 	return t.Uint16(buf), nil
 }
 
-func Int16(t binary.ByteOrder, rd io.Reader) (int16, error) {
-	u, e := Uint16(t, rd)
+func Int16(rd io.Reader, t binary.ByteOrder) (int16, error) {
+	u, e := Uint16(rd, t)
 	return int16(u), e
 }
 
-func Uint32(t binary.ByteOrder, rd io.Reader) (uint32, error) {
+func Uint32(rd io.Reader, t binary.ByteOrder) (uint32, error) {
 	buf := make([]byte, 4)
 
 	_, e := rd.Read(buf)
@@ -143,12 +143,12 @@ func Uint32(t binary.ByteOrder, rd io.Reader) (uint32, error) {
 	return t.Uint32(buf), nil
 }
 
-func Int32(t binary.ByteOrder, rd io.Reader) (int32, error) {
-	u, e := Uint32(t, rd)
+func Int32(rd io.Reader, t binary.ByteOrder) (int32, error) {
+	u, e := Uint32(rd, t)
 	return int32(u), e
 }
 
-func Uint64(t binary.ByteOrder, rd io.Reader) (uint64, error) {
+func Uint64(rd io.Reader, t binary.ByteOrder) (uint64, error) {
 	buf := make([]byte, 8)
 
 	_, e := rd.Read(buf)
@@ -159,18 +159,18 @@ func Uint64(t binary.ByteOrder, rd io.Reader) (uint64, error) {
 	return t.Uint64(buf), nil
 }
 
-func Int64(t binary.ByteOrder, rd io.Reader) (int64, error) {
-	u, e := Uint64(t, rd)
+func Int64(rd io.Reader, t binary.ByteOrder) (int64, error) {
+	u, e := Uint64(rd, t)
 	return int64(u), e
 }
 
-func Float32(t binary.ByteOrder, rd io.Reader) (float32, error) {
-	u, e := Uint32(t, rd)
+func Float32(rd io.Reader, t binary.ByteOrder) (float32, error) {
+	u, e := Uint32(rd, t)
 	return math.Float32frombits(u), e
 }
 
-func Float64(t binary.ByteOrder, rd io.Reader) (float64, error) {
-	u, e := Uint64(t, rd)
+func Float64(rd io.Reader, t binary.ByteOrder) (float64, error) {
+	u, e := Uint64(rd, t)
 	return math.Float64frombits(u), e
 }
 
