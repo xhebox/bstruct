@@ -95,6 +95,18 @@ func ReverseBytes(b []byte) {
 	}
 }
 
+func Bool2Byte(r bool) byte {
+	if r {
+		return 1
+	} else {
+		return 0
+	}
+}
+
+func Byte2Bool(r byte) bool {
+	return r != 0
+}
+
 func Uint8(rd io.Reader) (uint8, error) {
 	buf := make([]byte, 1)
 
