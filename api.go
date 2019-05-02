@@ -3,8 +3,8 @@ package bstruct
 import (
 	"reflect"
 
+	"github.com/pkg/errors"
 	"github.com/xhebox/bstruct/byteorder"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -49,14 +49,14 @@ func genType(typ reflect.Type) (r *Type, e error) {
 
 		switch k.Kind() {
 		case reflect.Slice, reflect.String:
-			e = xerrors.New("slice/string is not allowed to be elem of array/slice, if it's not a field of struct")
+			e = errors.New("slice/string is not allowed to be elem of array/slice, if it's not a field of struct")
 			return
 		}
 
 		var elem *Type
 		elem, e = genType(k)
 		if e != nil {
-			e = xerrors.Errorf("can not generate type: %w", e)
+			e = errors.Wrapf(e, "can not generate type")
 			return
 		}
 
@@ -85,7 +85,7 @@ func genType(typ reflect.Type) (r *Type, e error) {
 			} else {
 				t, e = genField(subfield)
 				if e != nil {
-					e = xerrors.Errorf("can not generate filed: %w", e)
+					e = errors.Wrapf(e, "can not generate field")
 					return
 				}
 			}
@@ -94,7 +94,7 @@ func genType(typ reflect.Type) (r *Type, e error) {
 			r.struct_elem = append(r.struct_elem, t)
 		}
 	default:
-		e = xerrors.Errorf("unsupported type %s", kind)
+		e = errors.Wrapf(e, "unsupported type %s", kind)
 		return
 	}
 
@@ -104,7 +104,7 @@ func genType(typ reflect.Type) (r *Type, e error) {
 func genField(field reflect.StructField) (r *Field, e error) {
 	r, e = newField(field)
 	if e != nil {
-		e = xerrors.Errorf("can not generate field: %w", e)
+		e = errors.Errorf("can not generate field: %v", e)
 	}
 
 	switch field.Type.Kind() {
@@ -115,7 +115,7 @@ func genField(field reflect.StructField) (r *Field, e error) {
 
 	r.rtype, e = genType(field.Type)
 	if e != nil {
-		e = xerrors.Errorf("can not generate type: %w", e)
+		e = errors.Errorf("can not generate type: %v", e)
 	}
 
 	switch field.Type.Kind() {

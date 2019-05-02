@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"golang.org/x/xerrors"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -201,7 +201,7 @@ func UVarint(b io.Reader, t ByteOrder) (uint64, error) {
 	}
 
 	if c == VMAXLEN && ch[c-1]&0x80 != 0 {
-		return 0, xerrors.New("overflowed")
+		return 0, errors.New("overflowed")
 	}
 
 	r, _, e := t.UVarint(ch[:])
@@ -224,7 +224,7 @@ func Varint(rd io.Reader, t ByteOrder) (int64, error) {
 	}
 
 	if c == VMAXLEN && ch[c-1]&0x80 != 0 {
-		return 0, xerrors.New("overflowed")
+		return 0, errors.New("overflowed")
 	}
 
 	r, _, e := t.Varint(ch[:])
