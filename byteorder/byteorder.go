@@ -340,25 +340,31 @@ func PutVarint(wt io.Writer, t ByteOrder, v int64) error {
 }
 
 type ByteOrder interface {
-	binary.ByteOrder
-
+	Uint16([]byte) uint16
+	Uint32([]byte) uint32
+	Uint64([]byte) uint64
 	Int16([]byte) int16
 	Int32([]byte) int32
 	Int64([]byte) int64
 	Float32([]byte) float32
 	Float64([]byte) float64
 
-	PutInt16([]byte, int16)
-	PutInt32([]byte, int32)
-	PutInt64([]byte, int64)
-	PutFloat32([]byte, float32)
-	PutFloat64([]byte, float64)
+	PutUint16([]byte, uint16) int
+	PutUint32([]byte, uint32) int
+	PutUint64([]byte, uint64) int
+	PutInt16([]byte, int16) int
+	PutInt32([]byte, int32) int
+	PutInt64([]byte, int64) int
+	PutFloat32([]byte, float32) int
+	PutFloat64([]byte, float64) int
 
 	UVarint([]byte) (uint64, int, error)
 	PutUVarint([]byte, uint64) int
 
 	Varint([]byte) (int64, int, error)
 	PutVarint([]byte, int64) int
+
+	String() string
 }
 
 func varint(t ByteOrder, b []byte) (int64, int, error) {
@@ -405,24 +411,39 @@ func (t bigEndian) Float64(b []byte) float64 {
 	return math.Float64frombits(t.Uint64(b))
 }
 
-func (t bigEndian) PutInt16(b []byte, h int16) {
-	t.PutUint16(b, uint16(h))
+func (t bigEndian) PutUint16(b []byte, h uint16) int {
+	t.ByteOrder.PutUint16(b, h)
+	return 2
 }
 
-func (t bigEndian) PutInt32(b []byte, h int32) {
-	t.PutUint32(b, uint32(h))
+func (t bigEndian) PutUint32(b []byte, h uint32) int {
+	t.ByteOrder.PutUint32(b, h)
+	return 4
 }
 
-func (t bigEndian) PutInt64(b []byte, h int64) {
-	t.PutUint64(b, uint64(h))
+func (t bigEndian) PutUint64(b []byte, h uint64) int {
+	t.ByteOrder.PutUint64(b, h)
+	return 8
 }
 
-func (t bigEndian) PutFloat32(b []byte, h float32) {
-	t.PutUint32(b, math.Float32bits(h))
+func (t bigEndian) PutInt16(b []byte, h int16) int {
+	return t.PutUint16(b, uint16(h))
 }
 
-func (t bigEndian) PutFloat64(b []byte, h float64) {
-	t.PutUint64(b, math.Float64bits(h))
+func (t bigEndian) PutInt32(b []byte, h int32) int {
+	return t.PutUint32(b, uint32(h))
+}
+
+func (t bigEndian) PutInt64(b []byte, h int64) int {
+	return t.PutUint64(b, uint64(h))
+}
+
+func (t bigEndian) PutFloat32(b []byte, h float32) int {
+	return t.PutUint32(b, math.Float32bits(h))
+}
+
+func (t bigEndian) PutFloat64(b []byte, h float64) int {
+	return t.PutUint64(b, math.Float64bits(h))
 }
 
 // lsb means decode the first group as the right most 7 bits
@@ -488,24 +509,39 @@ func (t littleEndian) Float64(b []byte) float64 {
 	return math.Float64frombits(t.Uint64(b))
 }
 
-func (t littleEndian) PutInt16(b []byte, h int16) {
-	t.PutUint16(b, uint16(h))
+func (t littleEndian) PutUint16(b []byte, h uint16) int {
+	t.ByteOrder.PutUint16(b, h)
+	return 2
 }
 
-func (t littleEndian) PutInt32(b []byte, h int32) {
-	t.PutUint32(b, uint32(h))
+func (t littleEndian) PutUint32(b []byte, h uint32) int {
+	t.ByteOrder.PutUint32(b, h)
+	return 4
 }
 
-func (t littleEndian) PutInt64(b []byte, h int64) {
-	t.PutUint64(b, uint64(h))
+func (t littleEndian) PutUint64(b []byte, h uint64) int {
+	t.ByteOrder.PutUint64(b, h)
+	return 8
 }
 
-func (t littleEndian) PutFloat32(b []byte, h float32) {
-	t.PutUint32(b, math.Float32bits(h))
+func (t littleEndian) PutInt16(b []byte, h int16) int {
+	return t.PutUint16(b, uint16(h))
 }
 
-func (t littleEndian) PutFloat64(b []byte, h float64) {
-	t.PutUint64(b, math.Float64bits(h))
+func (t littleEndian) PutInt32(b []byte, h int32) int {
+	return t.PutUint32(b, uint32(h))
+}
+
+func (t littleEndian) PutInt64(b []byte, h int64) int {
+	return t.PutUint64(b, uint64(h))
+}
+
+func (t littleEndian) PutFloat32(b []byte, h float32) int {
+	return t.PutUint32(b, math.Float32bits(h))
+}
+
+func (t littleEndian) PutFloat64(b []byte, h float64) int {
+	return t.PutUint64(b, math.Float64bits(h))
 }
 
 func (t littleEndian) UVarint(b []byte) (uint64, int, error) {
