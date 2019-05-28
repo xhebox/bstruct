@@ -2,13 +2,12 @@ package byteorder
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 	"math"
 	"math/bits"
 	"reflect"
 	"unsafe"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -110,8 +109,7 @@ func Byte2Bool(r byte) bool {
 func Uint8(rd io.Reader) (uint8, error) {
 	buf := make([]byte, 1)
 
-	_, e := rd.Read(buf)
-	if e != nil {
+	if _, e := io.ReadFull(rd, buf); e != nil {
 		return 0, e
 	}
 
@@ -128,60 +126,57 @@ func Int8(rd io.Reader) (int8, error) {
 	return int8(u), e
 }
 
-func Uint16(rd io.Reader, t binary.ByteOrder) (uint16, error) {
+func Uint16(rd io.Reader, t ByteOrder) (uint16, error) {
 	buf := make([]byte, 2)
 
-	_, e := rd.Read(buf)
-	if e != nil {
+	if _, e := io.ReadFull(rd, buf); e != nil {
 		return 0, e
 	}
 
 	return t.Uint16(buf), nil
 }
 
-func Int16(rd io.Reader, t binary.ByteOrder) (int16, error) {
+func Int16(rd io.Reader, t ByteOrder) (int16, error) {
 	u, e := Uint16(rd, t)
 	return int16(u), e
 }
 
-func Uint32(rd io.Reader, t binary.ByteOrder) (uint32, error) {
+func Uint32(rd io.Reader, t ByteOrder) (uint32, error) {
 	buf := make([]byte, 4)
 
-	_, e := rd.Read(buf)
-	if e != nil {
+	if _, e := io.ReadFull(rd, buf); e != nil {
 		return 0, e
 	}
 
 	return t.Uint32(buf), nil
 }
 
-func Int32(rd io.Reader, t binary.ByteOrder) (int32, error) {
+func Int32(rd io.Reader, t ByteOrder) (int32, error) {
 	u, e := Uint32(rd, t)
 	return int32(u), e
 }
 
-func Uint64(rd io.Reader, t binary.ByteOrder) (uint64, error) {
+func Uint64(rd io.Reader, t ByteOrder) (uint64, error) {
 	buf := make([]byte, 8)
 
-	_, e := rd.Read(buf)
-	if e != nil {
+	if _, e := io.ReadFull(rd, buf); e != nil {
 		return 0, e
 	}
 
 	return t.Uint64(buf), nil
 }
 
-func Int64(rd io.Reader, t binary.ByteOrder) (int64, error) {
+func Int64(rd io.Reader, t ByteOrder) (int64, error) {
 	u, e := Uint64(rd, t)
 	return int64(u), e
 }
 
-func Float32(rd io.Reader, t binary.ByteOrder) (float32, error) {
+func Float32(rd io.Reader, t ByteOrder) (float32, error) {
 	u, e := Uint32(rd, t)
 	return math.Float32frombits(u), e
 }
 
-func Float64(rd io.Reader, t binary.ByteOrder) (float64, error) {
+func Float64(rd io.Reader, t ByteOrder) (float64, error) {
 	u, e := Uint64(rd, t)
 	return math.Float64frombits(u), e
 }
@@ -191,7 +186,7 @@ func UVarint(b io.Reader, t ByteOrder) (uint64, error) {
 	c := 0
 
 	for ; c < VMAXLEN; c++ {
-		if _, e := b.Read(ch[c : c+1]); e != nil {
+		if _, e := io.ReadFull(b, ch[c:c+1]); e != nil {
 			return 0, e
 		}
 
@@ -214,7 +209,7 @@ func Varint(rd io.Reader, t ByteOrder) (int64, error) {
 	c := 0
 
 	for ; c < VMAXLEN; c++ {
-		if _, e := rd.Read(ch[c : c+1]); e != nil {
+		if _, e := io.ReadFull(rd, ch[c:c+1]); e != nil {
 			return 0, e
 		}
 
@@ -254,7 +249,7 @@ func PutInt8(wt io.Writer, v int8) error {
 	return PutUint8(wt, uint8(v))
 }
 
-func PutUint16(wt io.Writer, t binary.ByteOrder, v uint16) error {
+func PutUint16(wt io.Writer, t ByteOrder, v uint16) error {
 	buf := make([]byte, 2)
 
 	t.PutUint16(buf, v)
@@ -267,11 +262,11 @@ func PutUint16(wt io.Writer, t binary.ByteOrder, v uint16) error {
 	return nil
 }
 
-func PutInt16(wt io.Writer, t binary.ByteOrder, v int16) error {
+func PutInt16(wt io.Writer, t ByteOrder, v int16) error {
 	return PutUint16(wt, t, uint16(v))
 }
 
-func PutUint32(wt io.Writer, t binary.ByteOrder, v uint32) error {
+func PutUint32(wt io.Writer, t ByteOrder, v uint32) error {
 	buf := make([]byte, 4)
 
 	t.PutUint32(buf, v)
@@ -284,11 +279,11 @@ func PutUint32(wt io.Writer, t binary.ByteOrder, v uint32) error {
 	return nil
 }
 
-func PutInt32(wt io.Writer, t binary.ByteOrder, v int32) error {
+func PutInt32(wt io.Writer, t ByteOrder, v int32) error {
 	return PutUint32(wt, t, uint32(v))
 }
 
-func PutUint64(wt io.Writer, t binary.ByteOrder, v uint64) error {
+func PutUint64(wt io.Writer, t ByteOrder, v uint64) error {
 	buf := make([]byte, 8)
 
 	t.PutUint64(buf, v)
@@ -301,15 +296,15 @@ func PutUint64(wt io.Writer, t binary.ByteOrder, v uint64) error {
 	return nil
 }
 
-func PutInt64(wt io.Writer, t binary.ByteOrder, v int64) error {
+func PutInt64(wt io.Writer, t ByteOrder, v int64) error {
 	return PutUint64(wt, t, uint64(v))
 }
 
-func PutFloat32(wt io.Writer, t binary.ByteOrder, v float32) error {
+func PutFloat32(wt io.Writer, t ByteOrder, v float32) error {
 	return PutUint32(wt, t, math.Float32bits(v))
 }
 
-func PutFloat64(wt io.Writer, t binary.ByteOrder, v float64) error {
+func PutFloat64(wt io.Writer, t ByteOrder, v float64) error {
 	return PutUint64(wt, t, math.Float64bits(v))
 }
 

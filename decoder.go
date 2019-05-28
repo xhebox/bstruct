@@ -87,12 +87,12 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value, pvi interface{}) e
 
 		buf := *(*[]byte)(unsafe.Pointer(&hdr))
 
-		if _, e := t.Rd.Read(buf); e != nil {
+		if _, e := io.ReadFull(t.Rd, buf); e != nil {
 			return errors.Wrapf(e, "can not read")
 		}
 
 		if align > size {
-			if _, e := t.Rd.Read(decbuf[:align-size]); e != nil {
+			if _, e := io.ReadFull(t.Rd, decbuf[:align-size]); e != nil {
 				return errors.Wrapf(e, "can not read")
 			}
 		}
@@ -196,7 +196,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value, pvi interface{}) e
 				}
 				buf := *(*[]byte)(unsafe.Pointer(&hdr))
 
-				if _, e := t.Rd.Read(buf); e != nil {
+				if _, e := io.ReadFull(t.Rd, buf); e != nil {
 					return errors.WithStack(e)
 				}
 
