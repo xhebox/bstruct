@@ -461,6 +461,10 @@ func (t bigEndian) UVarint(b []byte) (uint64, int, error) {
 func (t bigEndian) PutUVarint(b []byte, v uint64) int {
 	c := 0
 
+	if v == 0 {
+		c = 1
+	}
+
 	for ; v != 0; c++ {
 		b[c] = byte(v&0x7F) | 0x80
 		v >>= 7
@@ -555,6 +559,10 @@ func (t littleEndian) UVarint(b []byte) (uint64, int, error) {
 
 func (t littleEndian) PutUVarint(b []byte, v uint64) int {
 	c := 0
+
+	if v == 0 {
+		c = 1
+	}
 
 	for ; v != 0; c++ {
 		b[c] = byte(v&0x7F) | 0x80
