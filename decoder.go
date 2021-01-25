@@ -153,7 +153,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value, pvi interface{}) e
 					mode = SliceModeLen
 				}
 			} else {
-				return nil
+				mode = SliceModeEOF
 			}
 		case SliceModeEOF:
 			size := w.slice_elem.Size(v.Type().Elem())
@@ -222,7 +222,7 @@ func (t *Decoder) decode(w *Type, align int, v reflect.Value, pvi interface{}) e
 					t.Rd = ord
 
 					if strings.HasSuffix(e.Error(), "EOF") {
-						return nil
+						break
 					}
 
 					return errors.Wrapf(e, "can not decode elem")
